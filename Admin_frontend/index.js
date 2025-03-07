@@ -43,12 +43,13 @@ document.addEventListener('DOMContentLoaded', function() {
     updateClock();
     setInterval(updateClock, 1000);
     
-    // Poll for updates every 5 seconds
-    setInterval(fetchDataAndPopulate, 5000);
+    // Poll for updates every 30 seconds instead of 5 seconds
+    setInterval(fetchDataAndPopulate, 30000);
 });
 
 // Function to fetch all data from the API
 function fetchDataAndPopulate() {
+    console.log("Fetching fresh data...");
     fetchTimetableData();
     fetchAnnouncements();
     fetchNotices();
@@ -59,19 +60,39 @@ function fetchTimetableData() {
     fetch(`${API_BASE_URL}/timetable`)
         .then(response => response.json())
         .then(data => {
-            // Store the data in memory
-            window.timetableEntries = data;
-            // Get current week from display
+            console.log("Fetched data:", data);
+            
+            // Check if data exists and isn't empty
+            if (data && data.length > 0) {
+                // Save valid data to localStorage as backup
+                localStorage.setItem('cachedTimetableData', JSON.stringify(data));
+                window.timetableEntries = data;
+            } else {
+                console.log("Received empty data, using cached data");
+                // Use cached data if the API returns empty
+                const cachedData = localStorage.getItem('cachedTimetableData');
+                if (cachedData) {
+                    window.timetableEntries = JSON.parse(cachedData);
+                } else {
+                    window.timetableEntries = [];
+                }
+            }
+            
+            // Always get current week from display
             const currentWeek = document.getElementById('display-week').textContent;
             populateTimetable(currentWeek);
         })
         .catch(error => {
-            console.error('Error fetching timetable data:', error);
-            // Fall back to localStorage if API fails
-            const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
-            window.timetableEntries = timetableEntries;
-            const currentWeek = document.getElementById('display-week').textContent;
-            populateTimetable(currentWeek);
+            console.error("Error fetching timetable:", error);
+            // On error, use cached data
+            const cachedData = localStorage.getItem('cachedTimetableData');
+            if (cachedData) {
+                window.timetableEntries = JSON.parse(cachedData);
+                
+                // Get current week from display
+                const currentWeek = document.getElementById('display-week').textContent;
+                populateTimetable(currentWeek);
+            }
         });
 }
 
@@ -80,13 +101,24 @@ function fetchAnnouncements() {
     fetch(`${API_BASE_URL}/announcements`)
         .then(response => response.json())
         .then(data => {
-            updateAnnouncementsDisplay(data);
+            if (data && data.length > 0) {
+                localStorage.setItem('cachedAnnouncements', JSON.stringify(data));
+                updateAnnouncementsDisplay(data);
+            } else {
+                const cachedData = localStorage.getItem('cachedAnnouncements');
+                if (cachedData) {
+                    updateAnnouncementsDisplay(JSON.parse(cachedData));
+                } else {
+                    updateAnnouncementsDisplay([]);
+                }
+            }
         })
         .catch(error => {
-            console.error('Error fetching announcements:', error);
-            // Fall back to localStorage if API fails
-            const announcements = JSON.parse(localStorage.getItem('announcements')) || [];
-            updateAnnouncementsDisplay(announcements);
+            console.error("Error fetching announcements:", error);
+            const cachedData = localStorage.getItem('cachedAnnouncements');
+            if (cachedData) {
+                updateAnnouncementsDisplay(JSON.parse(cachedData));
+            }
         });
 }
 
@@ -95,13 +127,24 @@ function fetchNotices() {
     fetch(`${API_BASE_URL}/notices`)
         .then(response => response.json())
         .then(data => {
-            updateNoticesDisplay(data);
+            if (data && data.length > 0) {
+                localStorage.setItem('cachedNotices', JSON.stringify(data));
+                updateNoticesDisplay(data);
+            } else {
+                const cachedData = localStorage.getItem('cachedNotices');
+                if (cachedData) {
+                    updateNoticesDisplay(JSON.parse(cachedData));
+                } else {
+                    updateNoticesDisplay([]);
+                }
+            }
         })
         .catch(error => {
-            console.error('Error fetching notices:', error);
-            // Fall back to localStorage if API fails
-            const notices = JSON.parse(localStorage.getItem('notices')) || [];
-            updateNoticesDisplay(notices);
+            console.error("Error fetching notices:", error);
+            const cachedData = localStorage.getItem('cachedNotices');
+            if (cachedData) {
+                updateNoticesDisplay(JSON.parse(cachedData));
+            }
         });
 }
 
