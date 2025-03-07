@@ -462,7 +462,7 @@ input[type="time"] {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var (--radius);
   box-sizing: border-box;
   font-size: 15px;
   transition: var(--transition);
@@ -798,4 +798,207 @@ input[type="number"]#week-number::-webkit-outer-spin-button {
         margin-top: 10px;
         margin-left: 0;
     }
+}
+
+/* Fix for time column display */
+.time-column {
+  background-color: var(--primary-dark);
+  color: white;
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  min-width: 80px;
+}
+
+/* Make cells bigger for better readability */
+.timetable td {
+  min-width: 120px;
+  height: 70px;
+  vertical-align: top;
+}
+
+/* Better highlighting for current week */
+.current-week-row td {
+  background-color: rgba(74, 144, 226, 0.15);
+}
+
+/* Empty cells styling */
+.timetable td:empty {
+  background-color: var(--bg-light);
+}
+
+/* Highlight alternating rows more distinctly */
+.timetable tr:nth-child(even) td {
+  background-color: rgba(74, 144, 226, 0.05);
+}
+
+.timetable tr:nth-child(odd) td {
+  background-color: var(--white);
+}
+
+/* Fix table row colors in timetable */
+.timetable tr:nth-child(even) td,
+#timetable-entries tr:nth-child(even) td {
+  background-color: rgba(74, 144, 226, 0.05);
+}
+
+.timetable tr:nth-child(odd) td,
+#timetable-entries tr:nth-child(odd) td {
+  background-color: var(--white);
+}
+
+/* Fix time column */
+.time-column,
+.time-cell {
+  background-color: var(--primary-dark) !important;
+  color: white;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+/* Better responsive design */
+@media screen and (max-width: 768px) {
+  /* Make timetable scroll horizontally */
+  .timetable-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 15px 0;
+  }
+  
+  /* Ensure minimum table width */
+  .timetable {
+    min-width: 600px;
+  }
+  
+  /* Adjust header for mobile */
+  header {
+    flex-direction: column;
+  }
+  
+  /* Adjust date time display */
+  .date-time {
+    position: static;
+    margin-top: 10px;
+  }
+  
+  /* Make forms more mobile-friendly */
+  form {
+    padding: 15px;
+    width: 100%;
+  }
+}
+
+/* Fix for displaying week data */
+.week-data {
+  margin-bottom: 30px;
+}
+
+/* Better responsive design */
+@media screen and (max-width: 768px) {
+  /* Adjust main layout */
+  body {
+    padding: 10px;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+  }
+  
+  h2 {
+    font-size: 1.4rem;
+  }
+  
+  /* Fix the date-time display */
+  .date-time {
+    position: static;
+    margin: 15px auto;
+    text-align: center;
+    max-width: 300px;
+  }
+  
+  /* Make timetable scroll horizontally */
+  .timetable-container {
+    margin: 15px 0;
+    padding: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* For smooth scrolling on iOS */
+  }
+  
+  /* Ensure the table doesn't get too squished */
+  .timetable {
+    min-width: 600px; /* Force horizontal scroll rather than tiny text */
+  }
+  
+  /* Style for the navigation buttons */
+  .week-selector {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .week-selector button {
+    padding: 8px 12px;
+    width: auto;
+    font-size: 12px;
+  }
+  
+  #display-week {
+    font-size: 18px;
+    padding: 0 10px;
+    min-width: 80px;
+  }
+  
+  /* Make announcements and notices more compact */
+  .announcement, .notice-item {
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  
+  /* Adjust form for mobile */
+  form {
+    width: 100%;
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  /* Better handling of week number input on small screens */
+  .week-input-container {
+    width: 100%;
+  }
+  
+  /* Better time input handling for small screens */
+  .time-range {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* Extra small devices */
+@media screen and (max-width: 480px) {
+  .week-selector {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .week-selector button {
+    width: 100%;
+  }
+  
+  #display-week {
+    margin: 10px 0;
+  }
+  
+  /* Shrink the table cells further */
+  .timetable td, .timetable th {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+  
+  .class-entry {
+    padding: 5px;
+  }
+  
+  .class-entry strong {
+    font-size: 13px;
+  }
 }

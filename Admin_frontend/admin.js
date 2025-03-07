@@ -199,7 +199,7 @@ function loadSavedValues() {
 }
 
 // Handle timetable form submission
-const API_BASE_URL = '/api';
+// const API_BASE_URL = '/api'; // Duplicate declaration removed
 
 document.getElementById('timetable-form').addEventListener('submit', function(event) {
     event.preventDefault();
@@ -1116,4 +1116,465 @@ function updateNotices() {
             console.error('Error fetching notices:', error);
             document.getElementById('admin-notices').innerHTML = '<p>Error loading notices.</p>';
         });
+}
+
+// Find your submitTimetableEntry function and update it:
+function submitTimetableEntry(event) {
+  event.preventDefault();
+  
+  // Get form values
+  const course = document.getElementById('course').value;
+  const teacher = document.getElementById('teacher').value;
+  const venue = document.getElementById('venue').value;
+  const week = document.getElementById('week').value;
+  // Get other form values...
+  
+  const entry = {
+    id: Date.now().toString(), // Add unique ID
+    course,
+    teacher,
+    venue,
+    week,
+    // Add other properties...
+  };
+  
+  // Send to API with better error handling
+  fetch('/api/timetable', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(entry)
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(data => {
+        throw new Error(data.message || 'Error adding entry');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('Success:', data);
+    alert('Entry added successfully!');
+    // Reset form or refresh data
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert(`Failed to add entry: ${error.message}`);
+  });
+}
+
+// Global variables to store data
+let timetableEntries = [];
+let announcements = [];
+let notices = [];
+
+const API_BASE_URL = '/api';
+
+// Function to load all data when the admin page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Load all data types
+    loadAllData();
+    
+    // Set up form submission handlers
+    setupFormHandlers();
+});
+
+function loadAllData() {
+    console.log("Loading all data for admin view...");
+    loadTimetableEntries();
+    loadAnnouncements();
+    loadNotices();
+}
+
+// Function to load timetable entries
+function loadTimetableEntries() {
+    fetch(`${API_BASE_URL}/timetable`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Timetable entries loaded:', data);
+            timetableEntries = data;
+            displayTimetableEntries(data);
+        })
+        .catch(error => {
+            console.error('Error loading timetable entries:', error);
+            alert('Failed to load timetable entries. See console for details.');
+        });
+}
+
+// Function to load announcements
+function loadAnnouncements() {
+    fetch(`${API_BASE_URL}/announcements`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Announcements loaded:', data);
+            announcements = data;
+            displayAnnouncements(data);
+        })
+        .catch(error => {
+            console.error('Error loading announcements:', error);
+            alert('Failed to load announcements. See console for details.');
+        });
+}
+
+// Function to load notices
+function loadNotices() {
+    fetch(`${API_BASE_URL}/notices`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Notices loaded:', data);
+            notices = data;
+            displayNotices(data);
+        })
+        .catch(error => {
+            console.error('Error loading notices:', error);
+            alert('Failed to load notices. See console for details.');
+        });
+}
+
+// Function to set up form submission handlers
+function setupFormHandlers() {
+    // Timetable form
+    const timetableForm = document.getElementById('timetable-form');
+    if (timetableForm) {
+        timetableForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitTimetableEntry();
+        });
+    }
+    
+    // Announcement form
+    const announcementForm = document.getElementById('announcement-form');
+    if (announcementForm) {
+        announcementForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitAnnouncement();
+        });
+    }
+    
+    // Notice form
+    const noticeForm = document.getElementById('notice-form');
+    if (noticeForm) {
+        noticeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitNotice();
+        });
+    }
+}
+
+// Function to display timetable entries
+function displayTimetableEntries(entries) {
+    const container = document.getElementById('timetable-entries');
+    if (!container) {
+        console.error('Timetable entries container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (entries.length === 0) {
+        container.innerHTML = '<tr><td colspan="7">No timetable entries found</td></tr>';
+        return;
+    }
+    
+    entries.forEach(entry => {
+        const row = document.createElement('tr');
+        
+        row.innerHTML = `
+            <td>${entry.week || ''}</td>
+            <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
+            <td>${entry.course || ''}</td>
+            <td>${entry.venue || ''}</td>
+            <td>${entry.teacher || ''}</td>
+            <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
+            <td>
+                <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
+            </td>
+        `;
+        
+        container.appendChild(row);
+    });
+    
+    // Add delete button event listeners
+    document.querySelectorAll('button[data-type="timetable"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            deleteTimetableEntry(id);
+        });
+    });
+}
+
+// Function to display announcements
+function displayAnnouncements(announcements) {
+    const container = document.getElementById('announcement-entries');
+    if (!container) {
+        console.error('Announcement container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (announcements.length === 0) {
+        container.innerHTML = '<p>No announcements found</p>';
+        return;
+    }
+    
+    announcements.forEach(announcement => {
+        const div = document.createElement('div');
+        div.className = 'announcement-item';
+        
+        div.innerHTML = `
+            <p><strong>${announcement.announcement}</strong></p>
+            <p>Posted: ${new Date(announcement.date).toLocaleDateString()}</p>
+            <p>Expires: ${new Date(announcement.expiryDate).toLocaleDateString()}</p>
+            <button class="delete-btn" data-id="${announcement.id}" data-type="announcement">Delete</button>
+            <hr>
+        `;
+        
+        container.appendChild(div);
+    });
+    
+    // Add delete button event listeners
+    document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            deleteAnnouncement(id);
+        });
+    });
+}
+
+// Function to display notices
+function displayNotices(notices) {
+    const container = document.getElementById('notice-entries');
+    if (!container) {
+        console.error('Notice container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (notices.length === 0) {
+        container.innerHTML = '<p>No notices found</p>';
+        return;
+    }
+    
+    notices.forEach(notice => {
+        const div = document.createElement('div');
+        div.className = 'notice-item';
+        
+        div.innerHTML = `
+            <p><strong>${notice.notice}</strong></p>
+            <p>Posted: ${new Date(notice.date).toLocaleDateString()}</p>
+            <button class="delete-btn" data-id="${notice.id}" data-type="notice">Delete</button>
+            <hr>
+        `;
+        
+        container.appendChild(div);
+    });
+    
+    // Add delete button event listeners
+    document.querySelectorAll('button[data-type="notice"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            deleteNotice(id);
+        });
+    });
+}
+
+// Function to submit timetable entry
+function submitTimetableEntry() {
+    // Get form values
+    const course = document.getElementById('course').value;
+    const teacher = document.getElementById('teacher').value;
+    const venue = document.getElementById('venue').value;
+    const week = document.getElementById('week').value;
+    
+    // Get selected days
+    const days = [];
+    document.querySelectorAll('input[name="day"]:checked').forEach(checkbox => {
+        days.push(checkbox.value);
+    });
+    
+    const startTime = document.getElementById('start-time').value;
+    const endTime = document.getElementById('end-time').value;
+    
+    // Create entry object
+    const entry = {
+        course,
+        teacher,
+        venue,
+        week,
+        days,
+        startTime,
+        endTime
+    };
+    
+    // Send to API
+    fetch(`${API_BASE_URL}/timetable`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(entry)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Entry added successfully!');
+            // Reset form
+            document.getElementById('timetable-form').reset();
+            
+            // Reload ALL data to ensure everything is displayed
+            loadAllData();
+        } else {
+            alert(`Failed to add entry: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(`Error adding entry: ${error.message}`);
+    });
+}
+
+// Function to submit announcement
+function submitAnnouncement() {
+    // Get form values
+    const announcement = document.getElementById('announcement').value;
+    const expiryDate = document.getElementById('expiry-date').value;
+    
+    // Create entry object
+    const entry = {
+        announcement,
+        date: new Date().toISOString(),
+        expiryDate: new Date(expiryDate).toISOString()
+    };
+    
+    // Send to API
+    fetch(`${API_BASE_URL}/announcements`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(entry)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Announcement added successfully!');
+            // Reset form
+            document.getElementById('announcement-form').reset();
+            
+            // Reload ALL data to ensure everything is displayed
+            loadAllData();
+        } else {
+            alert(`Failed to add announcement: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(`Error adding announcement: ${error.message}`);
+    });
+}
+
+// Function to submit notice
+function submitNotice() {
+    // Get form values
+    const notice = document.getElementById('notice').value;
+    
+    // Create entry object
+    const entry = {
+        notice,
+        date: new Date().toISOString()
+    };
+    
+    // Send to API
+    fetch(`${API_BASE_URL}/notices`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(entry)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Notice added successfully!');
+            // Reset form
+            document.getElementById('notice-form').reset();
+            
+            // Reload ALL data to ensure everything is displayed
+            loadAllData();
+        } else {
+            alert(`Failed to add notice: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(`Error adding notice: ${error.message}`);
+    });
+}
+
+// Delete functions
+function deleteTimetableEntry(id) {
+    if (confirm('Are you sure you want to delete this entry?')) {
+        fetch(`${API_BASE_URL}/timetable/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Entry deleted successfully!');
+                loadAllData(); // Reload everything
+            } else {
+                alert(`Failed to delete entry: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(`Error deleting entry: ${error.message}`);
+        });
+    }
+}
+
+function deleteAnnouncement(id) {
+    if (confirm('Are you sure you want to delete this announcement?')) {
+        fetch(`${API_BASE_URL}/announcements/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Announcement deleted successfully!');
+                loadAllData(); // Reload everything
+            } else {
+                alert(`Failed to delete announcement: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(`Error deleting announcement: ${error.message}`);
+        });
+    }
+}
+
+function deleteNotice(id) {
+    if (confirm('Are you sure you want to delete this notice?')) {
+        fetch(`${API_BASE_URL}/notices/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Notice deleted successfully!');
+                loadAllData(); // Reload everything
+            } else {
+                alert(`Failed to delete notice: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(`Error deleting notice: ${error.message}`);
+        });
+    }
 }
