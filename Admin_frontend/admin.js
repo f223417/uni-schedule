@@ -2,17 +2,24 @@
 
 // Add to the beginning of admin.js
 function startPolling() {
-    // Initial data load
-    updateTimetable();
-    updateAnnouncements();
-    updateNotices();
+    console.log("Starting data polling");
     
-    // Poll every 5 seconds
-    setInterval(() => {
-        updateTimetable();
-        updateAnnouncements();
-        updateNotices();
-    }, 5000);
+    // Initial fetch
+    loadAllData();
+    
+    // Set up interval for periodic updates
+    window.pollingInterval = setInterval(() => {
+        console.log("Polling for updates...");
+        loadAllData();
+    }, 5000); // 5 seconds
+    
+    // Also refresh when user comes back to tab
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            console.log("Tab became visible, fetching latest data");
+            loadAllData();
+        }
+    });
 }
 
 // Authentication check at the beginning of admin.js
@@ -1655,4 +1662,410 @@ function loadAllData() {
         .catch(error => {
             console.error('Error loading notices:', error);
         });
+}
+
+// Ensure the download button has the correct event listener
+document.addEventListener('DOMContentLoaded', function() {
+    const downloadPdfBtn = document.getElementById('download-pdf');
+    
+    if (downloadPdfBtn) {
+        // IMPORTANT: Remove any existing event listeners
+        const newBtn = downloadPdfBtn.cloneNode(true);
+        downloadPdfBtn.parentNode.replaceChild(newBtn, downloadPdfBtn);
+        
+        // Add single event listener to the new button
+        newBtn.addEventListener('click', generatePDF);
+    }
+});
+
+// Ensure the generatePDF function is correctly defined
+function generatePDF() {
+    // Get current week from the admin display
+    const currentWeek = document.getElementById('week').value || 'Week 1';
+    
+    // Create container for PDF content
+    const container = document.createElement('div');
+    container.style.padding = '20px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.width = '800px';
+    
+    // Create header
+    const header = document.createElement('div');
+    header.style.textAlign = 'center';
+    header.style.marginBottom = '20px';
+    header.innerHTML = `
+        <h2 style="margin: 0 0 5px 0; color: #3558d4; font-size: 22px;">University Timetable</h2>
+        <h3 style="margin: 5px 0; color: #666;">${currentWeek}</h3>
+        <p style="margin: 5px 0; color: #666;">Generated: ${new Date().toLocaleDateString()}</p>
+    `;
+    container.appendChild(header);
+    
+    // Create table for PDF
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.marginBottom = '20px';
+    
+    // Create table header
+    const thead = document.createElement('thead');
+    thead.style.backgroundColor = '#4a90e2';
+    thead.style.color = 'white';
+    
+    // Create header row
+    const headerRow = document.createElement('tr');
+    
+    // Add Time column header
+    const timeHeader = document.createElement('th');
+    timeHeader.textContent = 'Time';
+    timeHeader.style.padding = '10px';
+    timeHeader.style.border = '1px solid #ddd';
+    timeHeader.style.textAlign = 'center';
+    headerRow.appendChild(timeHeader);
+    
+    // Add weekday columns (Monday - Friday only)
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    days.forEach(day => {
+        const dayHeader = document.createElement('th');
+        dayHeader.textContent = day;
+        dayHeader.style.padding = '10px';
+        dayHeader.style.border = '1px solid #ddd';
+        dayHeader.style.textAlign = 'center';
+        headerRow.appendChild(dayHeader);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // Create table body
+    const tbody = document.createElement('tbody');
+    
+    // Extract week number from currentWeek
+    const weekMatch = currentWeek.match(/Week (\d+)/i);
+    const weekNum = weekMatch ? weekMatch[1] : '1';
+    
+    // Fetch timetable data
+    fetch(`${API_BASE_URL}/timetable`)
+        .then(response => response.json())
+        .then(allEntries => {
+            // Filter for current week
+            const entries = allEntries.filter(entry => {
+                if (typeof entry.week === 'string' && entry.week.includes(weekNum)) {
+                    return true;
+                }
+                return entry.week === `Week ${weekNum}` || entry.week === weekNum;
+            });
+            
+            console.log(`Found ${entries.length} entries for week ${weekNum}`);
+            
+            // Get all unique time slots
+            const timeSlots = [];
+            entries.forEach(entry => {
+                if (entry.startTime && entry.endTime) {
+                    const timeString = `${entry.startTime} - ${entry.endTime}`;
+                    if (!timeSlots.includes(timeString)) {
+                        timeSlots.push(timeString);
+                    }
+                }
+            });
+            
+            // Sort time slots
+            timeSlots.sort((a, b) => {
+                const timeA = a.split(' - ')[0];
+                const timeB = b.split(' - ')[0];
+                return timeA.localeCompare(timeB);
+            });
+            
+            // If no time slots found, use default ones
+            if (timeSlots.length === 0) {
+                const defaultSlots = [
+                    "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", 
+                    "11:00 - 12:00", "12:00 - 13:00", "13:00 - 14:00", 
+                    "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00"
+                ];
+                timeSlots.push(...defaultSlots);
+            }
+            
+            // Create rows for each time slot
+            timeSlots.forEach(timeSlot => {
+                const row = document.createElement('tr');
+                
+                // Add time cell
+                const timeCell = document.createElement('td');
+                timeCell.textContent = formatTimeForDisplay(timeSlot);
+                timeCell.style.padding = '10px';
+                timeCell.style.border = '1px solid #ddd';
+                timeCell.style.backgroundColor = '#f5f5f5';
+                timeCell.style.fontWeight = 'bold';
+                row.appendChild(timeCell);
+                
+                // Add cells for each day
+                days.forEach(day => {
+                    const cell = document.createElement('td');
+                    cell.style.padding = '10px';
+                    cell.style.border = '1px solid #ddd';
+                    cell.style.verticalAlign = 'top';
+                    
+                    // Find entries for this day and time slot
+                    const cellEntries = entries.filter(entry => {
+                        const entryTimeSlot = `${entry.startTime} - ${entry.endTime}`;
+                        const entryDays = entry.days ? entry.days.split(',').map(d => d.trim()) : [];
+                        return entryTimeSlot === timeSlot && entryDays.includes(day);
+                    });
+                    
+                    // Add entries to the cell
+                    if (cellEntries.length > 0) {
+                        cellEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.style.marginBottom = '8px';
+                            entryDiv.style.padding = '5px';
+                            entryDiv.style.borderLeft = '3px solid #4a90e2';
+                            entryDiv.style.backgroundColor = '#f9f9f9';
+                            
+                            entryDiv.innerHTML = `
+                                <div style="font-weight: bold; color: #333;">${entry.course || 'Course'}</div>
+                                <div style="color: #4a90e2;">${entry.venue || ''}</div>
+                                ${entry.teacher ? `<div style="color: #666; font-style: italic;">${entry.teacher}</div>` : ''}
+                            `;
+                            
+                            cell.appendChild(entryDiv);
+                        });
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+            
+            table.appendChild(tbody);
+            container.appendChild(table);
+            
+            // Generate PDF with the created content
+            finalizePDF(container);
+        })
+        .catch(error => {
+            console.error('Error fetching timetable data for PDF:', error);
+            alert('Error generating PDF. Please try again.');
+        });
+}
+
+// Helper function to format time for display
+function formatTimeForDisplay(timeSlot) {
+    if (!timeSlot) return '';
+    
+    const times = timeSlot.split(' - ');
+    if (times.length !== 2) return timeSlot;
+    
+    function formatSingleTime(time) {
+        const [hours, minutes] = time.split(':');
+        if (!hours || !minutes) return time;
+        
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+    }
+    
+    return `${formatSingleTime(times[0])} - ${formatSingleTime(times[1])}`;
+}
+
+// Add this helper function for PDF generation
+function finalizePDF(container) {
+    // Add container to the document temporarily
+    document.body.appendChild(container);
+    
+    // Generate PDF using html2pdf
+    window.html2pdf()
+        .from(container)
+        .set({
+            margin: 10,
+            filename: 'university-timetable.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        })
+        .save()
+        .then(() => {
+            // Remove the temporary container after PDF is generated
+            document.body.removeChild(container);
+        });
+}
+
+// Ensure the loadAllData function is called on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Admin page loaded - initializing...');
+    loadAllData();
+    startPolling();
+});
+
+// Ensure the loadAllData function is correctly defined
+function loadAllData() {
+    console.log("Loading all data for admin view...");
+    loadTimetableEntries();
+    loadAnnouncements();
+    loadNotices();
+}
+
+// Function to load timetable entries
+function loadTimetableEntries() {
+    fetch(`${API_BASE_URL}/timetable`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Timetable entries loaded:', data);
+            timetableEntries = data;
+            displayTimetableEntries(data);
+        })
+        .catch(error => {
+            console.error('Error loading timetable entries:', error);
+            alert('Failed to load timetable entries. See console for details.');
+        });
+}
+
+// Function to load announcements
+function loadAnnouncements() {
+    fetch(`${API_BASE_URL}/announcements`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Announcements loaded:', data);
+            announcements = data;
+            displayAnnouncements(data);
+        })
+        .catch(error => {
+            console.error('Error loading announcements:', error);
+            alert('Failed to load announcements. See console for details.');
+        });
+}
+
+// Function to load notices
+function loadNotices() {
+    fetch(`${API_BASE_URL}/notices`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Notices loaded:', data);
+            notices = data;
+            displayNotices(data);
+        })
+        .catch(error => {
+            console.error('Error loading notices:', error);
+            alert('Failed to load notices. See console for details.');
+        });
+}
+
+// Function to display timetable entries
+function displayTimetableEntries(entries) {
+    const container = document.getElementById('timetable-entries');
+    if (!container) {
+        console.error('Timetable entries container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (entries.length === 0) {
+        container.innerHTML = '<tr><td colspan="7">No timetable entries found</td></tr>';
+        return;
+    }
+    
+    entries.forEach(entry => {
+        const row = document.createElement('tr');
+        
+        row.innerHTML = `
+            <td>${entry.week || ''}</td>
+            <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
+            <td>${entry.course || ''}</td>
+            <td>${entry.venue || ''}</td>
+            <td>${entry.teacher || ''}</td>
+            <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
+            <td>
+                <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
+            </td>
+        `;
+        
+        container.appendChild(row);
+    });
+    
+    // Add delete button event listeners
+    document.querySelectorAll('button[data-type="timetable"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            deleteTimetableEntry(id);
+        });
+    });
+}
+
+// Function to display announcements
+function displayAnnouncements(announcements) {
+    const container = document.getElementById('announcement-entries');
+    if (!container) {
+        console.error('Announcement container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (announcements.length === 0) {
+        container.innerHTML = '<p>No announcements found</p>';
+        return;
+    }
+    
+    announcements.forEach(announcement => {
+        const div = document.createElement('div');
+        div.className = 'announcement-item';
+        
+        div.innerHTML = `
+            <p><strong>${announcement.announcement}</strong></p>
+            <p>Posted: ${new Date(announcement.date).toLocaleDateString()}</p>
+            <p>Expires: ${new Date(announcement.expiryDate).toLocaleDateString()}</p>
+            <button class="delete-btn" data-id="${announcement.id}" data-type="announcement">Delete</button>
+            <hr>
+        `;
+        
+        container.appendChild(div);
+    });
+    
+    // Add delete button event listeners
+    document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            deleteAnnouncement(id);
+        });
+    });
+}
+
+// Function to display notices
+function displayNotices(notices) {
+    const container = document.getElementById('notice-entries');
+    if (!container) {
+        console.error('Notice container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (notices.length === 0) {
+        container.innerHTML = '<p>No notices found</p>';
+        return;
+    }
+    
+    notices.forEach(notice => {
+        const div = document.createElement('div');
+        div.className = 'notice-item';
+        
+        div.innerHTML = `
+            <p><strong>${notice.notice}</strong></p>
+            <p>Posted: ${new Date(notice.date).toLocaleDateString()}</p>
+            <button class="delete-btn" data-id="${notice.id}" data-type="notice">Delete</button>
+            <hr>
+        `;
+        
+        container.appendChild(div);
+    });
+    
+    // Add delete button event listeners
+    document.querySelectorAll('button[data-type="notice"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            deleteNotice(id);
+        });
+    });
 }
