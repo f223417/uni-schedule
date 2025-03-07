@@ -1,0 +1,27 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "Admin-backend/server.js",
+        "use": "@vercel/node"
+      },
+      {
+        "src": "Admin_frontend/**",
+        "use": "@vercel/static"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/api/(.*)",
+        "dest": "Admin-backend/server.js"
+      },
+      {
+        "src": "/(admin|login)",
+        "dest": "Admin-backend/server.js"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "Admin_frontend/$1"
+      }
+    ]
+}

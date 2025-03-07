@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Timetable</title>
+    <!-- Add these to your existing head section -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="date-time" id="date-time">
+        <div id="current-datetime"></div>
+        <div class="week-number">Week <span id="week-number"></span></div>
+    </div>
+    <h1>Timetable</h1>
+    <div class="week-selector">
+        <button id="prev-week">Previous Week</button>
+        <span id="display-week"></span>
+        <button id="next-week">Next Week</button>
+    </div>
+    <div class="timetable-container">
+        <table id="timetable-entries" class="timetable">
+            <!-- Table content will be generated dynamically -->
+        </table>
+    </div>
+    <h2>Announcements</h2>
+    <div id="announcement-entries"></div>
+    <h2>Notices</h2>
+    <div id="notice-entries"></div>
+    <div class="admin-controls">
+       
+    </div>
+    <footer>
+        <img src="logo.png" width = 250px alt="University Logo">
+        <p>University</p>
+        <p>For more info contact: info@university.edu.pk</p>
+    </footer>
+    <script>
+        // Define time slots
+        const timeSlots = JSON.parse(localStorage.getItem('timeSlots')) || [
+            "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
+            "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
+        ];
+        
+        // Define weekdays
+        const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        
+        // Track the currently viewed week and current week separately
+        let viewingWeek = 1;
+        let currentWeek = 1;
+
+        function updateDateTime() {
+            const now = new Date();
+            const formattedDateTime = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+            document.getElementById('current-datetime').textContent = formattedDateTime;
+            
+            // Calculate week number since the start date
+            let startDate = localStorage.getItem('startDate');
+            if (!startDate) {
+                // If no start date is set, use the current date as the start date
+                startDate = now.toISOString();
+                localStorage.setItem('startDate', startDate);
+            }
+            
+            const start = new Date(startDate);
+            const diffTime = Math.abs(now - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const weekNumber = Math.ceil(diffDays / 7);
+            
+            // Update the current week display but don't change the viewing week
+            document.getElementById('week-number').textContent = weekNumber;
+            currentWeek = weekNumber;
+            
+            // Only set viewing week to current week when the page first loads
+            if (!window.weekNavigated) {
+                viewingWeek = currentWeek;
+                document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+            }
+            
+            // Update every second
+            setTimeout(updateDateTime, 1000);
+        }
+
+        // Update the timetable function in your index.html file
+        function updateTimetable() {
+            console.log('Updating timetable for week', viewingWeek);
+            const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
+            const table = document.getElementById('timetable-entries');
+            if (!table) {
+                console.error('Timetable element not found!');
+                return;
+            }
+            table.innerHTML = ''; // Clear existing entries
+            
+            // Filter entries for the current viewing week
+            const currentWeekEntries = timetableEntries.filter(entry => 
+                entry.week.includes(viewingWeek.toString()) || entry.week === `Week ${viewingWeek}`
+            );
+            
+            // Determine which days have entries for this week
+            const activeDays = new Set();
+            currentWeekEntries.forEach(entry => {
+                if (entry.days && Array.isArray(entry.days)) {
+                    entry.days.forEach(day => activeDays.add(day));
+                } else if (entry.day) {
+                    activeDays.add(entry.day);
+                }
+            });
+            
+            // Define the default weekdays to always show (Mon-Fri)
+            const defaultWeekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+            
+            // Check if weekend days have entries
+            const showSaturday = activeDays.has("Saturday");
+            const showSunday = activeDays.has("Sunday");
+            
+            // Create list of days to display
+            const daysToDisplay = [...defaultWeekdays];
+            if (showSaturday) daysToDisplay.push("Saturday");
+            if (showSunday) daysToDisplay.push("Sunday");
+            
+            // Create header row
+            const headerRow = document.createElement('tr');
+            
+            // Time column header
+            const timeHeader = document.createElement('th');
+            timeHeader.textContent = "Time";
+            headerRow.appendChild(timeHeader);
+            
+            // Always add Monday-Friday, and conditionally add weekend days
+            daysToDisplay.forEach(day => {
+                const th = document.createElement('th');
+                th.textContent = day;
+                headerRow.appendChild(th);
+            });
+            
+            table.appendChild(headerRow);
+            
+            // If no time slots defined, use default ones
+            let timeSlotList = timeSlots;
+            
+            // Get unique time slots from entries if they exist
+            const customTimeSlots = [];
+            currentWeekEntries.forEach(entry => {
+                if (!customTimeSlots.some(slot => slot.start === entry.startTime && slot.end === entry.endTime)) {
+                    customTimeSlots.push({
+                        start: entry.startTime,
+                        end: entry.endTime,
+                        display: entry.displayTime || `${formatTimeToAMPM(entry.startTime)} - ${formatTimeToAMPM(entry.endTime)}`
+                    });
+                }
+            });
+            
+            // Sort custom time slots by start time if they exist
+            if (customTimeSlots.length > 0) {
+                customTimeSlots.sort((a, b) => a.start.localeCompare(b.start));
+            }
+            
+            // Create rows for each time slot
+            if (customTimeSlots.length > 0) {
+                // Use custom time slots if entries exist
+                customTimeSlots.forEach(timeSlot => createTimeSlotRow(timeSlot, daysToDisplay, currentWeekEntries));
+            } else {
+                // Default time slots with empty cells if no entries
+                timeSlotList.forEach(time => {
+                    const row = document.createElement('tr');
+                    
+                    // Time cell
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = time;
+                    timeCell.className = 'time-cell';
+                    row.appendChild(timeCell);
+                    
+                    // Add empty cells for each day
+                    daysToDisplay.forEach(() => {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    });
+                    
+                    table.appendChild(row);
+                });
+            }
+            
+            // Helper function to create a row for a time slot
+            function createTimeSlotRow(timeSlot, days, entries) {
+                const row = document.createElement('tr');
+                
+                // Add time slot in the first cell
+                const timeCell = document.createElement('td');
+                timeCell.textContent = timeSlot.display;
+                timeCell.className = 'time-cell';
+                row.appendChild(timeCell);
+                
+                // Add cells for each day
+                days.forEach(day => {
+                    const cell = document.createElement('td');
+                    
+                    // Find entries for this day and time slot for the current week
+                    const dayEntries = entries.filter(entry => {
+                        return entry.days && 
+                               entry.days.includes(day) && 
+                               entry.startTime === timeSlot.start &&
+                               entry.endTime === timeSlot.end;
+                    });
+                    
+                    // Add content to cell if there are entries
+                    dayEntries.forEach(entry => {
+                        const entryDiv = document.createElement('div');
+                        entryDiv.className = 'class-entry';
+                        
+                        let entryContent = `
+                            <strong>${entry.course || 'Course'}</strong>
+                            <p class="venue">${entry.venue}</p>
+                        `;
+                        
+                        if (entry.teacher) {
+                            entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                        }
+                        
+                        entryDiv.innerHTML = entryContent;
+                        cell.appendChild(entryDiv);
+                    });
+                    
+                    row.appendChild(cell);
+                });
+                
+                table.appendChild(row);
+            }
+            
+            // Format time function
+            function formatTimeToAMPM(time) {
+                if (!time) return '';
+                const [hours, minutes] = time.split(':');
+                let hour = parseInt(hours);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                hour = hour % 12;
+                hour = hour ? hour : 12;
+                return `${hour}:${minutes} ${ampm}`;
+            }
+        }
+
+        function updateAnnouncements() {
+            const announcements = JSON.parse(localStorage.getItem('announcements')) || [];
+            const announcementContainer = document.getElementById('announcement-entries');
+            announcementContainer.innerHTML = ''; // Clear existing entries
+            
+            // Get current date for comparing
+            const now = new Date();
+            
+            // Filter out expired announcements
+            const activeAnnouncements = announcements.filter(entry => {
+                const expiryDate = new Date(entry.expiryDate);
+                return expiryDate >= now;
+            });
+            
+            if (activeAnnouncements.length === 0) {
+                announcementContainer.innerHTML = '<p>No active announcements</p>';
+                return;
+            }
+            
+            activeAnnouncements.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'announcement';
+                
+                // Calculate remaining days
+                const expiryDate = new Date(entry.expiryDate);
+                const diffTime = Math.abs(expiryDate - now);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                entryDiv.innerHTML = `
+                    <p class="announcement-text">${entry.announcement}</p>
+                    <p class="announcement-date">Posted: ${new Date(entry.date).toLocaleDateString()}</p>
+                    <p class="announcement-expiry">Expires in: ${diffDays} day(s)</p>
+                    <hr>
+                `;
+                announcementContainer.appendChild(entryDiv);
+            });
+        }
+
+        function updateNotices() {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const noticeContainer = document.getElementById('notice-entries');
+            noticeContainer.innerHTML = ''; // Clear existing entries
+            
+            notices.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.innerHTML = `
+                    <p>Notice: ${entry.notice}</p>
+                    <p>Date: ${new Date(entry.date).toLocaleDateString()}</p>
+                    <hr>
+                `;
+                noticeContainer.appendChild(entryDiv);
+            });
+        }
+
+        function clearAllEntries() {
+            if (confirm('Are you sure you want to delete all entries? This cannot be undone.')) {
+                localStorage.removeItem('timetableEntries');
+                localStorage.removeItem('announcements');
+                localStorage.removeItem('notices');
+                // Don't remove the startDate to keep the week count intact
+                
+                updateTimetable();
+                updateAnnouncements();
+                updateNotices();
+                
+                alert('All entries have been cleared.');
+            }
+        }
+
+        // Update the navigation button event listeners
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDateTime();
+            updateTimetable();
+            updateAnnouncements();
+            updateNotices();
+
+            // Add clear-all event listener if element exists
+            const clearAllBtn = document.getElementById('clear-all');
+            if (clearAllBtn) {
+                clearAllBtn.addEventListener('click', clearAllEntries);
+            }
+            
+            // Fix for week navigation controls
+            const prevWeekBtn = document.getElementById('prev-week');
+            const nextWeekBtn = document.getElementById('next-week');
+            
+            if (prevWeekBtn) {
+                prevWeekBtn.addEventListener('click', function() {
+                    if (viewingWeek > 1) {
+                        viewingWeek--;
+                        document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                        window.weekNavigated = true; // Flag that user has manually changed weeks
+                        updateTimetable();
+                        console.log("Previous week clicked, now viewing week:", viewingWeek);
+                    }
+                });
+            }
+            
+            if (nextWeekBtn) {
+                // Direct onclick handler instead of addEventListener
+                nextWeekBtn.onclick = function() {
+                    viewingWeek++;
+                    document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                    window.weekNavigated = true; // Flag that user has manually changed weeks
+                    updateTimetable();
+                    console.log("Next week clicked, now viewing week:", viewingWeek);
+                    return false; // Prevent default action
+                };
+            }
+        });
+
+        // Add this to your existing script
+        window.addEventListener('storage', function(event) {
+            if (event.key === 'timeSlots' || event.key === 'timetableEntries') {
+                updateTimetable();
+            }
+        });
+    </script>
+    <script src="index.js"></script>
+</body>
+</html>

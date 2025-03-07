@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Admin Timetable</title>
+    <!-- Add these to your admin page head section -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <h1>Admin Timetable</h1>
+    
+    <!-- Timetable Entry Form -->
+    <form id="timetable-form">
+        <h2>Add Timetable Entry</h2>
+        
+        <!-- Updated week selector with inline event handlers -->
+        <div class="week-input-container">
+            <label for="week-number">Select Week:</label>
+            <div class="week-number-selector">
+                <button type="button" class="week-arrow" id="decrease-week" onclick="decreaseWeek()">-</button>
+                <input type="number" id="week-number" min="1" value="1" readonly>
+                <button type="button" class="week-arrow" id="increase-week" onclick="increaseWeek()">+</button>
+            </div>
+            <div class="week-value-display" id="week-value-display">Week 1</div>
+            <input type="hidden" id="week" name="week" value="Week 1">
+        </div>
+        
+        <input type="text" id="course" placeholder="Course Name" list="course-list" required>
+        <datalist id="course-list"></datalist>
+        
+        <div class="checkbox-group">
+            <label>Select Days:</label><br>
+            <input type="checkbox" id="monday" name="days" value="Monday"> 
+            <label for="monday">Monday</label>
+            <input type="checkbox" id="tuesday" name="days" value="Tuesday"> 
+            <label for="tuesday">Tuesday</label>
+            <input type="checkbox" id="wednesday" name="days" value="Wednesday"> 
+            <label for="wednesday">Wednesday</label>
+            <input type="checkbox" id="thursday" name="days" value="Thursday"> 
+            <label for="thursday">Thursday</label>
+            <input type="checkbox" id="friday" name="days" value="Friday"> 
+            <label for="friday">Friday</label><br>
+            <!-- Add weekend days -->
+            <input type="checkbox" id="saturday" name="days" value="Saturday"> 
+            <label for="saturday">Saturday</label>
+            <input type="checkbox" id="sunday" name="days" value="Sunday"> 
+            <label for="sunday">Sunday</label>
+        </div>
+        
+        <div class="time-range">
+            <div class="time-input">
+                <label for="start-time">Start Time:</label>
+                <input type="time" id="start-time" required>
+            </div>
+            <div class="time-input">
+                <label for="end-time">End Time:</label>
+                <input type="time" id="end-time" required>
+            </div>
+        </div>
+        
+        <input type="text" id="teacher" placeholder="Teacher Name (optional)" list="teacher-list">
+        <datalist id="teacher-list"></datalist>
+        
+        <input type="text" id="venue" placeholder="Venue" list="venue-list" required>
+        <datalist id="venue-list"></datalist>
+        
+        <button type="submit">Add Entry</button>
+    </form>
+    
+    <!-- Announcement Form -->
+    <form id="announcement-form">
+        <h2>Add Announcement</h2>
+        <textarea id="announcement" placeholder="Enter announcement text" rows="4" required></textarea>
+        <input type="number" id="duration" placeholder="Duration (days)" min="1" required>
+        <button type="submit">Add Announcement</button>
+    </form>
+    
+    <!-- Notice Form -->
+    <form id="notice-form">
+        <h2>Add Notice</h2>
+        <textarea id="notice" placeholder="Enter notice text" rows="4" required></textarea>
+        <button type="submit">Add Notice</button>
+    </form>
+    
+    <!-- Current Entries -->
+    <h2>Current Timetable Entries</h2>
+    <div class="timetable-container">
+        <table id="admin-timetable" class="timetable">
+            <thead>
+                <tr>
+                    <th>Week</th>
+                    <th>Course</th>
+                    <th>Days</th>
+                    <th>Time</th>
+                    <th>Teacher</th>
+                    <th>Venue</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    
+    <!-- Current Announcements -->
+    <h2>Current Announcements</h2>
+    <div id="admin-announcements"></div>
+    
+    <!-- Current Notices -->
+    <h2>Current Notices</h2>
+    <div id="admin-notices"></div>
+    
+    <!-- Admin Controls -->
+    <div class="admin-controls">
+        <button id="manage-saved-data" onclick="if(typeof manageSavedData === 'function') manageSavedData(); else alert('Managing saved data...');">Manage Saved Data</button>
+        <button id="download-pdf" class="download-btn">Download Timetable PDF</button>
+        <button id="clear-all" onclick="if(confirm('Are you sure you want to clear ALL entries?')) { localStorage.removeItem('timetableEntries'); localStorage.removeItem('announcements'); localStorage.removeItem('notices'); alert('All entries cleared!'); location.reload(); }">Clear All Entries</button>
+    </div>
+    
+    <footer>
+        <img src="logo.png" alt="University Logo" width = 100px height="=100px">
+        <p>University of Chakwal</p>
+        <p>For more info contact:  mail@uoc.edu.pk</p>
+    </footer>
+    
+    <script src="admin.js"></script>
+    
+    
+    <script>
+        // Direct implementation of the button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing admin buttons...');
+            
+            // Clear All Entries button
+            const clearAllBtn = document.getElementById('clear-all');
+            if (clearAllBtn) {
+                console.log('Clear All button found');
+                clearAllBtn.onclick = function() {
+                    console.log('Clear All button clicked');
+                    if (confirm('Are you sure you want to clear ALL timetable entries, announcements, and notices? This cannot be undone.')) {
+                        // Clear all data
+                        localStorage.removeItem('timetableEntries');
+                        localStorage.removeItem('announcements');
+                        localStorage.removeItem('notices');
+                        
+                        alert('All entries have been cleared successfully!');
+                        
+                        // Refresh the UI
+                        if (typeof updateTimetable === 'function') updateTimetable();
+                        if (typeof updateAnnouncements === 'function') updateAnnouncements();
+                        if (typeof updateNotices === 'function') updateNotices();
+                    }
+                };
+            } else {
+                console.error('Clear All button not found');
+            }
+            
+            // Manage Saved Data button
+            const manageSavedDataBtn = document.getElementById('manage-saved-data');
+            if (manageSavedDataBtn) {
+                console.log('Manage Saved Data button found');
+                manageSavedDataBtn.onclick = function() {
+                    console.log('Manage Saved Data button clicked');
+                    
+                    // Implementation directly here to avoid dependencies
+                    const uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
+                    const uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
+                    const uniqueVenues = JSON.parse(localStorage.getItem('uniqueVenues')) || [];
+                    
+                    let coursesList = uniqueCourses.map(course => 
+                        `<li>${course} <button class="delete-saved-data" data-type="course" data-value="${course}">Delete</button></li>`).join('');
+                    let teachersList = uniqueTeachers.map(teacher => 
+                        `<li>${teacher} <button class="delete-saved-data" data-type="teacher" data-value="${teacher}">Delete</button></li>`).join('');
+                    let venuesList = uniqueVenues.map(venue => 
+                        `<li>${venue} <button class="delete-saved-data" data-type="venue" data-value="${venue}">Delete</button></li>`).join('');
+                    
+                    const modalContent = `
+                        <div class="saved-data-modal">
+                            <h3>Saved Courses</h3>
+                            <ul>${coursesList || '<li>No saved courses</li>'}</ul>
+                            <button class="clear-category-btn" data-type="courses">Clear All Courses</button>
+                            
+                            <h3>Saved Teachers</h3>
+                            <ul>${teachersList || '<li>No saved teachers</li>'}</ul>
+                            <button class="clear-category-btn" data-type="teachers">Clear All Teachers</button>
+                            
+                            <h3>Saved Venues</h3>
+                            <ul>${venuesList || '<li>No saved venues</li>'}</ul>
+                            <button class="clear-category-btn" data-type="venues">Clear All Venues</button>
+                            
+                            <div class="modal-actions">
+                                <button class="clear-all-data-btn">Clear All Saved Data</button>
+                                <button id="close-saved-data-modal">Close</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Create and add modal to DOM
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay';
+                    modal.innerHTML = modalContent;
+                    document.body.appendChild(modal);
+                    
+                    // Close button
+                    document.getElementById('close-saved-data-modal').addEventListener('click', function() {
+                        document.body.removeChild(modal);
+                    });
+                    
+                    // Delete individual items
+                    document.querySelectorAll('.delete-saved-data').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const type = this.getAttribute('data-type');
+                            const value = this.getAttribute('data-value');
+                            
+                            if (type === 'course') {
+                                let uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
+                                uniqueCourses = uniqueCourses.filter(course => course !== value);
+                                localStorage.setItem('uniqueCourses', JSON.stringify(uniqueCourses));
+                            } else if (type === 'teacher') {
+                                let uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
+                                uniqueTeachers = uniqueTeachers.filter(teacher => teacher !== value);
+                                localStorage.setItem('uniqueTeachers', JSON.stringify(uniqueTeachers));
+                            } else if (type === 'venue') {
+                                let uniqueVenues = JSON.parse(localStorage.getItem('uniqueVenues')) || [];
+                                uniqueVenues = uniqueVenues.filter(venue => venue !== value);
+                                localStorage.setItem('uniqueVenues', JSON.stringify(uniqueVenues));
+                            }
+                            
+                            // Refresh the modal
+                            document.body.removeChild(modal);
+                            manageSavedDataBtn.onclick();
+                            
+                            // Update datalists if the function exists
+                            if (typeof loadSavedValues === 'function') {
+                                loadSavedValues();
+                            }
+                        });
+                    });
+                    
+                    // Clear category buttons
+                    document.querySelectorAll('.clear-category-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const type = this.getAttribute('data-type');
+                            
+                            if (confirm(`Are you sure you want to clear all saved ${type}?`)) {
+                                if (type === 'courses') {
+                                    localStorage.removeItem('uniqueCourses');
+                                } else if (type === 'teachers') {
+                                    localStorage.removeItem('uniqueTeachers');
+                                } else if (type === 'venues') {
+                                    localStorage.removeItem('uniqueVenues');
+                                }
+                                
+                                // Refresh the modal
+                                document.body.removeChild(modal);
+                                manageSavedDataBtn.onclick();
+                                
+                                // Update datalists if the function exists
+                                if (typeof loadSavedValues === 'function') {
+                                    loadSavedValues();
+                                }
+                            }
+                        });
+                    });
+                    
+                    // Clear all data button
+                    document.querySelector('.clear-all-data-btn').addEventListener('click', function() {
+                        if (confirm('Are you sure you want to clear ALL saved courses, teachers, and venues?')) {
+                            localStorage.removeItem('uniqueCourses');
+                            localStorage.removeItem('uniqueTeachers');
+                            localStorage.removeItem('uniqueVenues');
+                            
+                            // Close modal
+                            document.body.removeChild(modal);
+                            
+                            // Update datalists if the function exists
+                            if (typeof loadSavedValues === 'function') {
+                                loadSavedValues();
+                            }
+                            
+                            alert('All saved data has been cleared successfully!');
+                        }
+                    });
+                };
+            } else {
+                console.error('Manage Saved Data button not found');
+            }
+        });
+        
+        // Backup initialization with window.onload
+        window.onload = function() {
+            console.log('Window loaded - checking buttons...');
+            
+            const clearAllBtn = document.getElementById('clear-all');
+            const manageSavedDataBtn = document.getElementById('manage-saved-data');
+            
+            // Check if buttons exist but don't have click handlers
+            if (clearAllBtn && !clearAllBtn.onclick) {
+                console.log('Adding backup handler to Clear All button');
+                clearAllBtn.onclick = function() {
+                    if (confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
+                        localStorage.removeItem('timetableEntries');
+                        localStorage.removeItem('announcements');
+                        localStorage.removeItem('notices');
+                        alert('All entries cleared!');
+                        location.reload(); // Simple reload as fallback
+                    }
+                };
+            }
+            
+            if (manageSavedDataBtn && !manageSavedDataBtn.onclick) {
+                console.log('Adding backup handler to Manage Saved Data button');
+                manageSavedDataBtn.onclick = function() {
+                    alert('This feature is being initialized. Please wait a moment and try again.');
+                    location.reload(); // Simple reload as fallback
+                };
+            }
+        };
+    </script>
+
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const downloadPdfBtn = document.getElementById('download-pdf');
+        
+        if (downloadPdfBtn) {
+            // IMPORTANT: Remove any existing event listeners
+            const newBtn = downloadPdfBtn.cloneNode(true);
+            downloadPdfBtn.parentNode.replaceChild(newBtn, downloadPdfBtn);
+            
+            // Add single event listener to the new button
+            newBtn.addEventListener('click', generatePDF);
+        }
+        
+        function generatePDF() {
+            console.log("Starting PDF generation process");
+            
+            // Show loading state
+            const btn = document.getElementById('download-pdf');
+            btn.textContent = 'Generating...';
+            btn.disabled = true;
+            
+            // Try admin timetable first, then try iframe approach
+            const adminTable = document.getElementById('admin-timetable');
+            
+            if (adminTable && adminTable.rows.length > 1) {
+                console.log("Using admin timetable for PDF");
+                generateFromAdminTable();
+            } else {
+                console.log("Admin timetable not found or empty, trying frontend iframe");
+                generateFromFrontend();
+            }
+        }
+        
+        // Function to generate PDF from admin table
+        function generateFromAdminTable() {
+            try {
+                const originalTable = document.getElementById('admin-timetable');
+                
+                // Create a clone of the table so we can modify it without affecting the display
+                const tableClone = originalTable.cloneNode(true);
+                
+                // Find and remove the Actions column
+                const headerCells = tableClone.querySelectorAll('thead th');
+                let actionColumnIndex = -1;
+                
+                // Find the Actions column index
+                for (let i = 0; i < headerCells.length; i++) {
+                    if (headerCells[i].textContent.trim() === 'Actions') {
+                        actionColumnIndex = i;
+                        break;
+                    }
+                }
+                
+                // If Actions column exists, remove it from all rows
+                if (actionColumnIndex !== -1) {
+                    // Remove from header
+                    headerCells[actionColumnIndex].remove();
+                    
+                    // Remove from all body rows
+                    const bodyRows = tableClone.querySelectorAll('tbody tr');
+                    bodyRows.forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length > actionColumnIndex) {
+                            cells[actionColumnIndex].remove();
+                        }
+                    });
+                }
+                
+                // Ensure table takes up full width
+                tableClone.style.width = '100%';
+                tableClone.style.borderCollapse = 'collapse';
+                
+                // Create a container for the PDF
+                const container = document.createElement('div');
+                container.style.padding = '20px';
+                container.style.backgroundColor = '#ffffff';
+                
+                // Add a title
+                const header = document.createElement('div');
+                header.style.textAlign = 'center';
+                header.style.marginBottom = '15px';
+                
+                header.innerHTML = `
+                    <h2 style="margin: 0 0 5px 0; color: #3558d4; font-size: 22px;">University Timetable</h2>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">Generated: ${new Date().toLocaleDateString()}</p>
+                `;
+                
+                // Add everything to container
+                container.appendChild(header);
+                container.appendChild(tableClone);
+                
+                // Position off-screen for rendering
+                container.style.position = 'absolute';
+                container.style.left = '-9999px';
+                container.style.top = '0';
+                document.body.appendChild(container);
+                
+                // Generate PDF
+                completeGeneration(container);
+                
+            } catch (error) {
+                console.error('Error in admin table PDF generation:', error);
+                // Fallback to frontend method
+                generateFromFrontend();
+            }
+        }
+        
+        // Function to generate PDF from frontend iframe
+        function generateFromFrontend() {
+            try {
+                // Create iframe to load frontend
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-9999px';
+                iframe.style.width = '1200px';
+                iframe.style.height = '800px';
+                
+                // Add iframe to document
+                document.body.appendChild(iframe);
+                
+                // Set timeout to handle case where iframe fails to load
+                const iframeTimeout = setTimeout(() => {
+                    console.log("Iframe load timed out");
+                    document.body.removeChild(iframe);
+                    fallbackGeneration();
+                }, 5000);
+                
+                // Handle iframe load
+                iframe.onload = function() {
+                    clearTimeout(iframeTimeout);
+                    
+                    try {
+                        console.log("Iframe loaded, accessing content");
+                        let timetableElement;
+                        
+                        try {
+                            // Try to access iframe content - may fail due to cross-origin policy
+                            timetableElement = iframe.contentDocument.getElementById('timetable-entries');
+                        } catch (accessError) {
+                            console.warn("Cannot access iframe content:", accessError);
+                            document.body.removeChild(iframe);
+                            fallbackGeneration();
+                            return;
+                        }
+                        
+                        if (!timetableElement || timetableElement.rows.length <= 1) {
+                            console.warn("Timetable not found in iframe or empty");
+                            document.body.removeChild(iframe);
+                            fallbackGeneration();
+                            return;
+                        }
+                        
+                        console.log("Timetable found in iframe, generating PDF");
+                        
+                        // Create container for PDF content
+                        const container = document.createElement('div');
+                        container.style.width = '800px';
+                        container.style.padding = '20px';
+                        container.style.backgroundColor = '#ffffff';
+                        
+                        // Add header
+                        const header = document.createElement('div');
+                        header.style.textAlign = 'center';
+                        header.style.marginBottom = '20px';
+                        
+                        // Get week if available
+                        let weekText = "Current Week";
+                        try {
+                            const weekDisplay = iframe.contentDocument.getElementById('display-week');
+                            if (weekDisplay) {
+                                weekText = weekDisplay.textContent;
+                            }
+                        } catch (e) { 
+                            console.warn("Could not access week display:", e);
+                        }
+                        
+                        header.innerHTML = `
+                            <h2 style="margin: 0 0 5px 0; color: #3558d4; font-size: 22px;">University Timetable</h2>
+                            <p style="margin: 5px 0; font-size: 16px; font-weight: bold;">${weekText}</p>
+                            <p style="margin: 5px 0; font-size: 14px; color: #666;">Generated: ${new Date().toLocaleDateString()}</p>
+                        `;
+                        
+                        // Clone timetable from iframe
+                        const tableClone = timetableElement.cloneNode(true);
+                        tableClone.style.width = '100%';
+                        tableClone.style.borderCollapse = 'collapse';
+                        
+                        // Add to container
+                        container.appendChild(header);
+                        container.appendChild(tableClone);
+                        
+                        // Add container to page
+                        document.body.appendChild(container);
+                        
+                        // Remove iframe as it's no longer needed
+                        document.body.removeChild(iframe);
+                        
+                        // Complete PDF generation
+                        completeGeneration(container);
+                        
+                    } catch (iframeError) {
+                        console.error("Error processing iframe:", iframeError);
+                        document.body.removeChild(iframe);
+                        fallbackGeneration();
+                    }
+                };
+                
+                // Handle iframe load error
+                iframe.onerror = function() {
+                    clearTimeout(iframeTimeout);
+                    console.error("Failed to load iframe");
+                    document.body.removeChild(iframe);
+                    fallbackGeneration();
+                };
+                
+                // Set iframe source to load frontend
+                iframe.src = './index.html';
+                
+            } catch (error) {
+                console.error("Error in frontend iframe PDF generation:", error);
+                fallbackGeneration();
+            }
+        }
+        
+        // Fallback method when all else fails
+        function fallbackGeneration() {
+            // Create a simple table with sample data instead of showing an error
+            const container = document.createElement('div');
+            container.style.padding = '20px';
+            container.style.backgroundColor = '#ffffff';
+            container.style.width = '800px';
+            container.style.fontFamily = 'Arial, sans-serif';
+            
+            container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #3558d4; margin-bottom: 10px;">University Timetable</h2>
+                    <p style="color: #666;">Generated on ${new Date().toLocaleDateString()}</p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="background-color: #4a90e2; color: white; padding: 8px; border: 1px solid #ddd;">Time</th>
+                            <th style="background-color: #4a90e2; color: white; padding: 8px; border: 1px solid #ddd;">Monday</th>
+                            <th style="background-color: #4a90e2; color: white; padding: 8px; border: 1px solid #ddd;">Tuesday</th>
+                            <th style="background-color: #4a90e2; color: white; padding: 8px; border: 1px solid #ddd;">Wednesday</th>
+                            <th style="background-color: #4a90e2; color: white; padding: 8px; border: 1px solid #ddd;">Thursday</th>
+                            <th style="background-color: #4a90e2; color: white; padding: 8px; border: 1px solid #ddd;">Friday</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="background-color: #f5f5f5; font-weight: bold; padding: 8px; border: 1px solid #ddd; text-align: center;">8:00 AM</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"></td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"></td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"></td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"></td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p style="text-align: center; margin-top: 20px; color: #666; font-style: italic;">This is a template. Please check the actual timetable for accurate information.</p>
+            `;
+            
+            document.body.appendChild(container);
+            completeGeneration(container);
+        }
+        
+        // Final stage of PDF generation - common for all methods
+        function completeGeneration(container) {
+            // Use html2canvas to capture the container
+            html2canvas(container, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                logging: false,
+                useCORS: true
+            }).then(canvas => {
+                // Remove container after capturing
+                document.body.removeChild(container);
+                
+                try {
+                    // Create PDF in landscape orientation
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF({
+                        orientation: 'landscape',
+                        unit: 'mm',
+                        format: 'a4'
+                    });
+                    
+                    // Add the image to PDF
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    
+                    // Calculate proper scaling
+                    const imgWidth = canvas.width;
+                    const imgHeight = canvas.height;
+                    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight) * 0.95;
+                    
+                    // Center on page
+                    const x = (pdfWidth - imgWidth * ratio) / 2;
+                    const y = 10; // Small top margin
+                    
+                    // Add to PDF
+                    pdf.addImage(imgData, 'PNG', x, y, imgWidth * ratio, imgHeight * ratio);
+                    
+                    // Add footer
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(100);
+                    
+                    // Save the PDF
+                    pdf.save('university-timetable.pdf');
+                    
+                    console.log("PDF successfully generated");
+                } catch (pdfError) {
+                    console.error("Error creating PDF:", pdfError);
+                    alert("There was a problem generating the PDF. Please try again.");
+                }
+                
+                // Reset button regardless of outcome
+                resetButton();
+            }).catch(canvasError => {
+                console.error("Error capturing content:", canvasError);
+                document.body.removeChild(container);
+                alert("There was a problem generating the PDF. Please try again.");
+                resetButton();
+            });
+        }
+        
+        // Helper to reset button state
+        function resetButton() {
+            const btn = document.getElementById('download-pdf');
+            if (btn) {
+                btn.textContent = 'Download Timetable PDF';
+                btn.disabled = false;
+            }
+        }
+    });
+</script>
+</body>
+</html>

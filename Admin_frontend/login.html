@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login | University Timetable</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="login-page">
+    <!-- Logo and Header -->
+    <div class="login-header">
+        <div class="logo-section">
+            <img src="logo.png" alt="University Logo">
+            <h1>University Timetable</h1>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="login-container">
+        <div class="forms-container">
+            <!-- Login Form -->
+            <div class="form active" id="login-form">
+                <h2 class="form-title">Welcome Back</h2>
+                <form>
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="login-username" placeholder="Username" required>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="login-password" placeholder="Password" required>
+                            <i class="fas fa-eye toggle-password"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="form-options">
+                        <div class="remember-me">
+                            <input type="checkbox" id="remember">
+                            <label for="remember">Remember me</label>
+                        </div>
+                        <a href="#" id="forgot-link">Forgot password?</a>
+                    </div>
+                    
+                    <button type="submit" class="btn primary-btn">Login</button>
+                    <div id="login-message" class="message"></div>
+                    
+                    <p class="form-switch-text">
+                        Don't have an account? <a href="#" id="show-signup">Sign up</a>
+                    </p>
+                </form>
+            </div>
+            
+            <!-- Sign Up Form -->
+            <div class="form" id="signup-form">
+                <h2 class="form-title">Create Account</h2>
+                <form>
+                    <!-- Changed to vertical layout - one input per line -->
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="signup-username" placeholder="Username" required>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                            <input type="email" id="signup-email" placeholder="Email" required>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="signup-password" placeholder="Password" required>
+                            <i class="fas fa-eye toggle-password"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="confirm-password" placeholder="Confirm Password" required>
+                            <i class="fas fa-eye toggle-password"></i>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn primary-btn">Create Account</button>
+                    <div id="signup-message" class="message"></div>
+                    
+                    <p class="form-switch-text">
+                        Already have an account? <a href="#" id="show-login">Log in</a>
+                    </p>
+                </form>
+            </div>
+            
+            <!-- Forgot Password Form -->
+            <div class="form" id="forgot-form">
+                <h2 class="form-title">Reset Password</h2>
+                <p class="form-description">Enter your email address to reset your password.</p>
+                
+                <form>
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                            <input type="email" id="forgot-email" placeholder="Email" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn primary-btn">Reset Password</button>
+                    <div id="forgot-message" class="message"></div>
+                    
+                    <p class="form-switch-text">
+                        Remember your password? <a href="#" id="back-to-login">Back to login</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="login-footer">
+        <p>University of Chakwal || <a href="mailto:mail@uoc.edu.pk">mail@uoc.edu.pk</a></p>
+    </div>
+    
+    <script src="login.js"></script>
+</body>
+</html>
