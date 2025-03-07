@@ -1,5 +1,20 @@
 // admin.js
 
+// Add to the beginning of admin.js
+function startPolling() {
+    // Initial data load
+    updateTimetable();
+    updateAnnouncements();
+    updateNotices();
+    
+    // Poll every 5 seconds
+    setInterval(() => {
+        updateTimetable();
+        updateAnnouncements();
+        updateNotices();
+    }, 5000);
+}
+
 // Authentication check at the beginning of admin.js
 
 // Check if user is logged in
@@ -199,10 +214,11 @@ function loadSavedValues() {
 }
 
 // Handle timetable form submission
-// const API_BASE_URL = '/api'; // Duplicate declaration removed
+const API_BASE_URL = '/api';
 
 document.getElementById('timetable-form').addEventListener('submit', function(event) {
     event.preventDefault();
+    console.log('Form submitted');
     
     const week = document.getElementById('week').value;
     const course = document.getElementById('course').value;
@@ -212,17 +228,21 @@ document.getElementById('timetable-form').addEventListener('submit', function(ev
     const teacher = document.getElementById('teacher').value;
     const venue = document.getElementById('venue').value;
 
-    // Check if at least one day is selected
+    // Validation
     if (days.length === 0) {
         alert('Please select at least one day');
         return;
     }
-    
-    // Validate start time is before end time
+
     if (startTime >= endTime) {
         alert('Start time must be before end time');
         return;
     }
+
+    // Store unique values for autocomplete
+    if (course) storeUniqueCourse(course);
+    if (teacher) storeUniqueTeacher(teacher);
+    if (venue) storeUniqueVenue(venue);
 
     const timetableEntry = {
         week,
@@ -234,6 +254,9 @@ document.getElementById('timetable-form').addEventListener('submit', function(ev
         venue
     };
 
+    // Debug log
+    console.log('Submitting entry:', timetableEntry);
+
     fetch(`${API_BASE_URL}/timetable`, {
         method: 'POST',
         headers: {
@@ -241,15 +264,21 @@ document.getElementById('timetable-form').addEventListener('submit', function(ev
         },
         body: JSON.stringify(timetableEntry)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Success:', data);
         alert('Timetable entry added successfully!');
         document.getElementById('timetable-form').reset();
         updateTimetable();
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error adding timetable entry.');
+        alert('Error adding timetable entry. Please check the console for details.');
     });
 });
 
@@ -1170,7 +1199,7 @@ let timetableEntries = [];
 let announcements = [];
 let notices = [];
 
-const API_BASE_URL = '/api';
+
 
 // Function to load all data when the admin page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -1577,4 +1606,53 @@ function deleteNotice(id) {
             alert(`Error deleting notice: ${error.message}`);
         });
     }
+}
+
+// Add this at the top of your file
+document.addEventListener('DOMContentLoaded', function() {
+    // Load all data when page loads
+    console.log('Admin page loaded - fetching all data');
+    loadAllData();
+    
+    // Set up event listeners for tab switching
+    setupTabNavigation();
+    
+    // Set up form event listeners
+    setupFormEventListeners();
+});
+
+// Add this function to load everything
+function loadAllData() {
+    // Load timetable entries
+    fetch('/api/timetable')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Loaded timetable entries:', data);
+            displayTimetableEntries(data);
+        })
+        .catch(error => {
+            console.error('Error loading timetable entries:', error);
+        });
+        
+    // Load announcements
+    fetch('/api/announcements')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Loaded announcements:', data);
+            displayAnnouncements(data);
+        })
+        .catch(error => {
+            console.error('Error loading announcements:', error);
+        });
+        
+    // Load notices
+    fetch('/api/notices')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Loaded notices:', data);
+            displayNotices(data);
+        })
+        .catch(error => {
+            console.error('Error loading notices:', error);
+        });
 }

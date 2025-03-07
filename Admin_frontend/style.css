@@ -424,7 +424,7 @@ textarea {
   color: white;
   border: none;
   padding: 12px 20px;
-  border-radius: var(--radius);
+  border-radius: var (--radius);
   cursor: pointer;
   font-weight: 600;
   font-size: 16px;
@@ -516,7 +516,9 @@ input[type="time"]:focus {
 }
 
 input[type="number"]#week-number {
-  -moz-appearance: textfield;
+  appearance: textfield;
+  -moz-appearance: textfield; /* Firefox */
+  -webkit-appearance: textfield; /* Safari/Chrome */
   flex: 1;
   text-align: center;
   font-size: 18px;
@@ -1000,5 +1002,81 @@ input[type="number"]#week-number::-webkit-outer-spin-button {
   
   .class-entry strong {
     font-size: 13px;
+  }
+}
+
+/* Add these styles to the end of your style.css file */
+
+/* Fix for time column display */
+.time-column, .time-cell {
+  background-color: var(--primary-dark);
+  color: white;
+  min-width: 100px;
+  font-weight: bold;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+/* Better table styling */
+.timetable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.timetable th, .timetable td {
+  border: 1px solid var(--border);
+  padding: 10px;
+  text-align: center;
+  vertical-align: top;
+}
+
+.timetable th {
+  background-color: var(--primary);
+  color: white;
+}
+
+/* Highlight alternating rows */
+.timetable tr:nth-child(even) {
+  background-color: var(--bg-light);
+}
+
+/* Class entry styling */
+.class-entry {
+  background-color: var(--white);
+  border-left: 3px solid var(--primary);
+  padding: 8px;
+  margin: 4px 0;
+  text-align: left;
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+.class-entry strong {
+  color: var(--text-dark);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.class-entry .venue {
+  color: var(--primary-dark);
+  font-weight: 500;
+  margin: 2px 0;
+  font-size: 0.9em;
+}
+
+.class-entry .teacher {
+  color: var(--text-light);
+  font-style: italic;
+  font-size: 0.85em;
+  margin-top: 2px;
+}
+
+/* Responsive table for mobile */
+@media screen and (max-width: 768px) {
+  .timetable-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

@@ -180,150 +180,143 @@ function navigateWeek(direction) {
 }
 
 // Populate the timetable for the selected week - MODIFIED TO SHOW EACH CLASS IN ITS OWN ROW
+// Update the populateTimetable function to remove weekend days
 function populateTimetable(week) {
-    // Use window.timetableEntries instead of localStorage
-    const timetableEntries = window.timetableEntries || [];
+    console.log(`Populating timetable for ${week}`);
     
-    // Filter entries for the current week
+    // Use API data if available, otherwise fall back to localStorage
+    const timetableEntries = window.timetableEntries || 
+                      JSON.parse(localStorage.getItem('cachedTimetableData')) || [];
+    
+    // Filter entries for the current week - exact match
     const weekData = timetableEntries.filter(entry => entry.week === week);
-    console.log(`Filtering for week "${week}": Found ${weekData.length} entries`);
+    console.log(`Found ${weekData.length} entries for ${week}`);
     
-    // Clear existing timetable
     const table = document.getElementById('timetable-entries');
-    if (!table) {
-        console.error('Timetable table element not found');
-        return;
-    }
+    if (!table) return;
+    
+    // Clear existing table content
     table.innerHTML = '';
     
     if (weekData.length === 0) {
         // No entries for this week
         const emptyRow = document.createElement('tr');
         const emptyCell = document.createElement('td');
-        emptyCell.colSpan = 8; // Adjusted for all 7 days + time column
+        emptyCell.colSpan = 6; // Adjusted for 5 weekdays + time column
         emptyCell.textContent = 'No classes scheduled for this week';
         emptyCell.style.textAlign = 'center';
-        emptyCell.style.padding = '30px';
+        emptyCell.style.padding = '20px';
         emptyRow.appendChild(emptyCell);
         table.appendChild(emptyRow);
         return;
     }
     
-    // Sort entries by start time
-    weekData.sort((a, b) => {
-        if (!a.startTime) return 1;
-        if (!b.startTime) return -1;
-        return a.startTime.localeCompare(b.startTime);
-    });
+    // Create the table header
+    const header = document.createElement('tr');
     
-    // Create timetable with one row per class
-    createOneRowPerClassTimetable(weekData, table);
-}
-
-// New function to create timetable with one row per class entry
-function createOneRowPerClassTimetable(weekData, table) {
-    // Define all possible days
-    const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    
-    // Find which days actually have entries
-    const activeDays = new Set();
-    weekData.forEach(entry => {
-        // Handle different day formats
-        if (entry.days && typeof entry.days === 'string') {
-            entry.days.split(',').forEach(day => activeDays.add(day.trim()));
-        } else if (entry.days && Array.isArray(entry.days)) {
-            entry.days.forEach(day => activeDays.add(day));
-        } else if (entry.day) {
-            activeDays.add(entry.day);
-        }
-    });
-    
-    // Create header row
-    const headerRow = document.createElement('tr');
-    
-    // Add Time header
+    // Add time column header
     const timeHeader = document.createElement('th');
     timeHeader.textContent = 'Time';
     timeHeader.className = 'time-column';
-    headerRow.appendChild(timeHeader);
+    header.appendChild(timeHeader);
     
-    // Add day headers for active days
-    const daysToDisplay = [];
-    allDays.forEach(day => {
-        // Include weekdays by default and weekend days with entries
-        if (activeDays.has(day) || 
-            (["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(day))) {
-            const dayHeader = document.createElement('th');
-            dayHeader.textContent = day;
-            headerRow.appendChild(dayHeader);
-            daysToDisplay.push(day);
-        }
+    // Add day headers (only Monday through Friday)
+    const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    weekdays.forEach(day => {
+        const dayHeader = document.createElement('th');
+        dayHeader.textContent = day;
+        header.appendChild(dayHeader);
     });
     
-    table.appendChild(headerRow);
+    table.appendChild(header);
     
-    // Group entries by time for better organization
-    const entriesByStartTime = {};
+    // Get all unique time slots from entries
+    const timeSlots = [];
     
     weekData.forEach(entry => {
-        if (!entry.startTime || !entry.endTime) return;
-        
-        const key = entry.startTime;
-        if (!entriesByStartTime[key]) {
-            entriesByStartTime[key] = [];
+        if (entry.startTime && entry.endTime) {
+            const timeSlot = `${entry.startTime} - ${entry.endTime}`;
+            if (!timeSlots.includes(timeSlot)) {
+                timeSlots.push(timeSlot);
+            }
         }
-        entriesByStartTime[key].push(entry);
     });
     
-    // Create a row for each entry, grouped by start time for better sorting
-    Object.keys(entriesByStartTime).sort().forEach(startTime => {
-        const entries = entriesByStartTime[startTime];
+    // Sort time slots
+    timeSlots.sort((a, b) => {
+        const timeA = a.split(' - ')[0];
+        const timeB = b.split(' - ')[0];
+        return timeA.localeCompare(timeB);
+    });
+    
+    // If no time slots found, use default ones
+    if (timeSlots.length === 0) {
+        const defaultSlots = [
+            "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", 
+            "11:00 - 12:00", "12:00 - 13:00", "13:00 - 14:00", 
+            "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00"
+        ];
         
-        entries.forEach(entry => {
-            // For each entry, create a row
+        defaultSlots.forEach(timeSlot => {
             const row = document.createElement('tr');
             
-            // Add time cell showing the time range
+            // Add time cell
             const timeCell = document.createElement('td');
+            timeCell.textContent = formatTime(timeSlot.split(' - ')[0]) + ' - ' + formatTime(timeSlot.split(' - ')[1]);
             timeCell.className = 'time-cell';
-            timeCell.textContent = `${formatTime(entry.startTime)} - ${formatTime(entry.endTime)}`;
             row.appendChild(timeCell);
             
-            // Add a cell for each day in the display
-            daysToDisplay.forEach(day => {
+            // Add empty cells for each day (weekdays only)
+            weekdays.forEach(() => {
+                const dayCell = document.createElement('td');
+                row.appendChild(dayCell);
+            });
+            
+            table.appendChild(row);
+        });
+    } else {
+        // Create rows for each time slot
+        timeSlots.forEach(timeSlot => {
+            const row = document.createElement('tr');
+            
+            // Add time cell
+            const timeCell = document.createElement('td');
+            const times = timeSlot.split(' - ');
+            timeCell.textContent = formatTime(times[0]) + ' - ' + formatTime(times[1]);
+            timeCell.className = 'time-cell';
+            row.appendChild(timeCell);
+            
+            // Add cells for each day (only Monday-Friday)
+            weekdays.forEach(day => {
                 const cell = document.createElement('td');
                 
-                // Check if this entry belongs in this day's cell
-                let isDayMatch = false;
+                // Find entries for this day and time slot
+                const entries = weekData.filter(entry => {
+                    const entryTimeSlot = `${entry.startTime} - ${entry.endTime}`;
+                    const entryDays = entry.days ? entry.days.split(',').map(d => d.trim()) : [];
+                    return entryTimeSlot === timeSlot && entryDays.includes(day);
+                });
                 
-                if (entry.days && typeof entry.days === 'string') {
-                    isDayMatch = entry.days.split(',').map(d => d.trim()).includes(day);
-                } else if (entry.days && Array.isArray(entry.days)) {
-                    isDayMatch = entry.days.includes(day);
-                } else if (entry.day === day) {
-                    isDayMatch = true;
-                }
-                
-                // If it's a match, add the entry content
-                if (isDayMatch) {
-                    const classDiv = document.createElement('div');
-                    classDiv.className = 'class-entry';
+                // Add entries to the cell
+                entries.forEach(entry => {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = 'class-entry';
                     
-                    classDiv.innerHTML = `
-                        <strong>${entry.course || 'Class'}</strong>
+                    entryDiv.innerHTML = `
+                        <strong>${entry.course || 'Course'}</strong>
                         <p class="venue">${entry.venue || ''}</p>
                         ${entry.teacher ? `<p class="teacher">${entry.teacher}</p>` : ''}
                     `;
                     
-                    cell.appendChild(classDiv);
-                }
+                    cell.appendChild(entryDiv);
+                });
                 
                 row.appendChild(cell);
             });
             
             table.appendChild(row);
         });
-    });
+    }
 }
 
 // Function to update announcements display
