@@ -1864,42 +1864,72 @@ function manageSavedData() {
         fetch(`${API_BASE_URL}/venues`).then(res => res.json()).catch(() => [])
     ])
     .then(([courses, teachers, venues]) => {
+        console.log('Data loaded:', {courses, teachers, venues});
+        
+        // Handle possible data structure issues
+        const processCourses = Array.isArray(courses) ? courses : [];
+        const processTeachers = Array.isArray(teachers) ? teachers : [];
+        const processVenues = Array.isArray(venues) ? venues : [];
+        
+        // Process each item to handle different API response formats
+        const formatItem = (item) => {
+            if (typeof item === 'string') return { name: item, id: item };
+            if (typeof item === 'object' && item !== null) {
+                return {
+                    name: item.name || item.course || item.teacher || item.venue || 'Unnamed',
+                    id: item.id || item._id || String(Math.random()).slice(2)
+                };
+            }
+            return { name: 'Unknown', id: String(Math.random()).slice(2) };
+        };
+        
+        // Format and create lists
+        const formattedCourses = processCourses.map(formatItem);
+        const formattedTeachers = processTeachers.map(formatItem);
+        const formattedVenues = processVenues.map(formatItem);
+        
         // Create lists with delete buttons for each item
-        let coursesList = courses.map(course => 
+        let coursesList = formattedCourses.map(course => 
             `<li class="saved-data-item">${course.name} <button class="delete-saved-data" data-type="course" data-id="${course.id}">Delete</button></li>`).join('');
         
-        let teachersList = teachers.map(teacher => 
+        let teachersList = formattedTeachers.map(teacher => 
             `<li class="saved-data-item">${teacher.name} <button class="delete-saved-data" data-type="teacher" data-id="${teacher.id}">Delete</button></li>`).join('');
         
-        let venuesList = venues.map(venue => 
+        let venuesList = formattedVenues.map(venue => 
             `<li class="saved-data-item">${venue.name} <button class="delete-saved-data" data-type="venue" data-id="${venue.id}">Delete</button></li>`).join('');
         
         // Create modal content
         const modalContent = `
-            <div class="saved-data-modal">
+            <div class="saved-data-modal" style="background-color: #fff; padding: 20px; border-radius: 5px; max-width: 600px; width: 90%; max-height: 80vh; overflow: auto;">
                 <h3>Manage Saved Data</h3>
                 
-                <div class="saved-data-section">
-                    <h4>Saved Courses (${courses.length})</h4>
-                    <ul class="saved-data-list">${coursesList || '<li class="empty-list">No saved courses</li>'}</ul>
-                    <button class="clear-category-btn" data-type="courses">Clear All Courses</button>
+                <div class="saved-data-section" style="margin-bottom: 20px;">
+                    <h4>Saved Courses (${formattedCourses.length})</h4>
+                    <ul class="saved-data-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
+                        ${coursesList || '<li class="empty-list" style="color: #999; font-style: italic;">No saved courses</li>'}
+                    </ul>
+                    <button class="clear-category-btn" data-type="courses" style="background-color: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Clear All Courses</button>
                 </div>
                 
-                <div class="saved-data-section">
-                    <h4>Saved Teachers (${teachers.length})</h4>
-                    <ul class="saved-data-list">${teachersList || '<li class="empty-list">No saved teachers</li>'}</ul>
-                    <button class="clear-category-btn" data-type="teachers">Clear All Teachers</button>
+                <div class="saved-data-section" style="margin-bottom: 20px;">
+                    <h4>Saved Teachers (${formattedTeachers.length})</h4>
+                    <ul class="saved-data-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
+                        ${teachersList || '<li class="empty-list" style="color: #999; font-style: italic;">No saved teachers</li>'}
+                    </ul>
+                    <button class="clear-category-btn" data-type="teachers" style="background-color: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Clear All Teachers</button>
                 </div>
                 
-                <div class="saved-data-section">
-                    <h4>Saved Venues (${venues.length})</h4>
-                    <ul class="saved-data-list">${venuesList || '<li class="empty-list">No saved venues</li>'}</ul>
-                    <button class="clear-category-btn" data-type="venues">Clear All Venues</button>
+                <div class="saved-data-section" style="margin-bottom: 20px;">
+                    <h4>Saved Venues (${formattedVenues.length})</h4>
+                    <ul class="saved-data-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
+                        ${venuesList || '<li class="empty-list" style="color: #999; font-style: italic;">No saved venues</li>'}
+                    </ul>
+                    <button class="clear-category-btn" data-type="venues" style="background-color: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Clear All Venues</button>
                 </div>
                 
-                <div class="modal-actions">
-                    <button class="clear-all-data-btn">Clear All Saved Data</button>
-                    <button id="close-saved-data-modal">Close</button>
+                <div class="modal-actions" style="display: flex; justify-content: space-between; margin-top: 20px;">
+                    <button class="clear-all-data-btn" style="background-color: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Clear All Saved Data</button>
+                    <button id="close-saved-data-modal" style="background-color: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Close</button>
                 </div>
             </div>
         `;
@@ -1907,25 +1937,10 @@ function manageSavedData() {
         // Update the modal content
         modal.innerHTML = modalContent;
         
-        // Style the modal dialog
-        const modalDialog = modal.querySelector('.saved-data-modal');
-        if (modalDialog) {
-            modalDialog.style.backgroundColor = '#fff';
-            modalDialog.style.padding = '20px';
-            modalDialog.style.borderRadius = '5px';
-            modalDialog.style.maxWidth = '600px';
-            modalDialog.style.width = '90%';
-            modalDialog.style.maxHeight = '80vh';
-            modalDialog.style.overflow = 'auto';
-        }
-        
         // Close button handler
-        const closeBtn = document.getElementById('close-saved-data-modal');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function() {
-                document.body.removeChild(modal);
-            });
-        }
+        document.getElementById('close-saved-data-modal').addEventListener('click', function() {
+            document.body.removeChild(modal);
+        });
         
         // Individual item delete handler
         document.querySelectorAll('.delete-saved-data').forEach(btn => {
@@ -1938,7 +1953,12 @@ function manageSavedData() {
                     fetch(`${API_BASE_URL}/${type}s/${id}`, {
                         method: 'DELETE'
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Failed to delete ${type}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         // Refresh the modal
                         document.body.removeChild(modal);
@@ -1962,10 +1982,15 @@ function manageSavedData() {
                 
                 if (confirm(`Are you sure you want to clear all saved ${type}?`)) {
                     // Clear all items of this type via API
-                    fetch(`${API_BASE_URL}/${type}`, {
+                    fetch(`${API_BASE_URL}/${type}/clear`, {
                         method: 'DELETE'
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Failed to clear ${type}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         // Refresh the modal
                         document.body.removeChild(modal);
@@ -1989,9 +2014,9 @@ function manageSavedData() {
                 if (confirm('Are you sure you want to clear ALL saved data?')) {
                     // Make separate requests to clear all data types
                     Promise.all([
-                        fetch(`${API_BASE_URL}/courses`, { method: 'DELETE' }),
-                        fetch(`${API_BASE_URL}/teachers`, { method: 'DELETE' }),
-                        fetch(`${API_BASE_URL}/venues`, { method: 'DELETE' })
+                        fetch(`${API_BASE_URL}/courses/clear`, { method: 'DELETE' }),
+                        fetch(`${API_BASE_URL}/teachers/clear`, { method: 'DELETE' }),
+                        fetch(`${API_BASE_URL}/venues/clear`, { method: 'DELETE' })
                     ])
                     .then(() => {
                         alert('All saved data has been cleared successfully!');
@@ -2012,7 +2037,7 @@ function manageSavedData() {
             <div class="saved-data-modal" style="background-color: #fff; padding: 20px; border-radius: 5px; max-width: 600px; width: 90%;">
                 <h3>Error Loading Data</h3>
                 <p>There was a problem loading the saved data. Please try again.</p>
-                <button id="close-error-modal">Close</button>
+                <button id="close-error-modal" style="background-color: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-top: 15px;">Close</button>
             </div>
         `;
         
@@ -2020,57 +2045,6 @@ function manageSavedData() {
             document.body.removeChild(modal);
         });
     });
-}
-
-// Updated loadSavedValues function to use API instead of localStorage
-function loadSavedValues() {
-    // Fetch courses for autocomplete
-    fetch(`${API_BASE_URL}/courses`)
-        .then(res => res.json())
-        .then(courses => {
-            const courseDatalist = document.getElementById('course-list');
-            if (courseDatalist) {
-                courseDatalist.innerHTML = '';
-                courses.forEach(course => {
-                    const option = document.createElement('option');
-                    option.value = course.name;
-                    courseDatalist.appendChild(option);
-                });
-            }
-        })
-        .catch(err => console.error('Error loading courses:', err));
-
-    // Fetch teachers for autocomplete
-    fetch(`${API_BASE_URL}/teachers`)
-        .then(res => res.json())
-        .then(teachers => {
-            const teacherDatalist = document.getElementById('teacher-list');
-            if (teacherDatalist) {
-                teacherDatalist.innerHTML = '';
-                teachers.forEach(teacher => {
-                    const option = document.createElement('option');
-                    option.value = teacher.name;
-                    teacherDatalist.appendChild(option);
-                });
-            }
-        })
-        .catch(err => console.error('Error loading teachers:', err));
-
-    // Fetch venues for autocomplete
-    fetch(`${API_BASE_URL}/venues`)
-        .then(res => res.json())
-        .then(venues => {
-            const venueDatalist = document.getElementById('venue-list');
-            if (venueDatalist) {
-                venueDatalist.innerHTML = '';
-                venues.forEach(venue => {
-                    const option = document.createElement('option');
-                    option.value = venue.name;
-                    venueDatalist.appendChild(option);
-                });
-            }
-        })
-        .catch(err => console.error('Error loading venues:', err));
 }
 
 // Make sure the function is attached to the button when the page loads
