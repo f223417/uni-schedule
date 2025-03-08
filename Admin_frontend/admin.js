@@ -2074,13 +2074,30 @@ function deleteEntry(type, id) {
     const itemName = types[type] || 'item';
     
     if (confirm(`Are you sure you want to delete this ${itemName}?`)) {
-        fetch(`${API_BASE_URL}/${type}/${id}`, {
+        // Show loader or disable button
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Deleting...';
+        button.disabled = true;
+        
+        // Correct the API endpoint based on type
+        let endpoint = '';
+        if (type === 'timetable') {
+            endpoint = `${API_BASE_URL}/timetable/${id}`;
+        } else if (type === 'announcement') {
+            endpoint = `${API_BASE_URL}/announcements/${id}`;
+        } else if (type === 'notice') {
+            endpoint = `${API_BASE_URL}/notices/${id}`;
+        }
+        
+        fetch(endpoint, {
             method: 'DELETE'
         })
         .then(response => {
+            // Check for HTTP error status
             if (!response.ok) {
-                return response.json().then(data => {
-                    throw new Error(data.message || `Error deleting ${itemName}`);
+                return response.text().then(text => {
+                    throw new Error(`Server responded with status ${response.status}: ${text || 'No error details provided'}`);
                 });
             }
             return response.json();
@@ -2088,11 +2105,24 @@ function deleteEntry(type, id) {
         .then(data => {
             console.log(`${itemName} deleted:`, data);
             alert(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} deleted successfully!`);
-            loadAllData(); // Reload everything
+            
+            // Reload only the affected data type
+            if (type === 'timetable') {
+                loadTimetableEntries();
+            } else if (type === 'announcement') {
+                loadAnnouncements();
+            } else if (type === 'notice') {
+                loadNotices();
+            }
         })
         .catch(error => {
             console.error(`Error deleting ${itemName}:`, error);
-            alert(`Failed to delete ${itemName}: ${error.message}`);
+            alert(`Failed to delete ${itemName}. Error: ${error.message}`);
+        })
+        .finally(() => {
+            // Reset button state
+            button.textContent = originalText;
+            button.disabled = false;
         });
     }
 }
@@ -2103,6 +2133,7 @@ document.addEventListener('click', function(event) {
     
     // Check if the clicked element is a delete button
     if (target.classList.contains('delete-btn')) {
+        event.preventDefault();
         const id = target.getAttribute('data-id');
         const type = target.getAttribute('data-type') || 'timetable';
         
@@ -2110,6 +2141,7 @@ document.addEventListener('click', function(event) {
             deleteEntry(type, id);
         } else {
             console.error('Delete button missing data-id attribute');
+            alert('Error: Could not identify the item to delete');
         }
     }
 });
@@ -2123,42 +2155,68 @@ function clearAllEntries() {
         clearAllBtn.textContent = 'Clearing...';
         clearAllBtn.disabled = true;
         
-        // Sequential API calls to clear all data types
-        fetch(`${API_BASE_URL}/timetable/all`, {
-            method: 'DELETE'
+        // Try either /clear or /all endpoints - adjust these to match your API
+        const endpoints = [
+            // Try with the /clear endpoint pattern
+            {
+                timetable: `${API_BASE_URL}/timetable/clear`,
+                announcements: `${API_BASE_URL}/announcements/clear`,
+                notices: `${API_BASE_URL}/notices/clear`
+            },
+            // Alternative /all endpoint pattern
+            {
+                timetable: `${API_BASE_URL}/timetable/all`,
+                announcements: `${API_BASE_URL}/announcements/all`,
+                notices: `${API_BASE_URL}/notices/all`
+            }
+        ];
+        
+        // Try the first endpoint pattern
+        tryDeleteEndpoints(endpoints[0], clearAllBtn, originalText)
+            .catch(() => {
+                // If first pattern fails, try the alternative pattern
+                console.log('First endpoint pattern failed, trying alternative...');
+                return tryDeleteEndpoints(endpoints[1], clearAllBtn, originalText);
+            })
+            .catch(error => {
+                // Both patterns failed
+                console.error('All delete patterns failed:', error);
+                alert('Failed to clear entries. Please check console for details.');
+                clearAllBtn.textContent = originalText;
+                clearAllBtn.disabled = false;
+            });
+    }
+}
+
+// Helper function to try a set of delete endpoints
+function tryDeleteEndpoints(endpoints, button, originalText) {
+    return fetch(endpoints.timetable, { method: 'DELETE' })
+        .then(response => {
+            if (!response.ok) throw new Error(`Failed to clear timetable entries: ${response.status}`);
+            return fetch(endpoints.announcements, { method: 'DELETE' });
         })
         .then(response => {
-            if (!response.ok) throw new Error('Failed to clear timetable entries');
-            return fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(`Failed to clear announcements: ${response.status}`);
+            return fetch(endpoints.notices, { method: 'DELETE' });
         })
         .then(response => {
-            if (!response.ok) throw new Error('Failed to clear announcements');
-            return fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' });
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Failed to clear notices');
+            if (!response.ok) throw new Error(`Failed to clear notices: ${response.status}`);
             
             // Success - update UI
             loadAllData();
             alert('All entries have been cleared successfully!');
-        })
-        .catch(error => {
-            console.error('Error clearing entries:', error);
-            alert(`Error clearing entries: ${error.message}`);
-        })
-        .finally(() => {
+            
             // Reset button state
-            clearAllBtn.textContent = originalText;
-            clearAllBtn.disabled = false;
+            button.textContent = originalText;
+            button.disabled = false;
         });
-    }
 }
 
 // Attach the clearAllEntries function to the button on page load
 document.addEventListener('DOMContentLoaded', function() {
     const clearAllBtn = document.getElementById('clear-all');
     if (clearAllBtn) {
-        // Remove any existing handlers by cloning and replacing
+        // Remove any existing event handlers to prevent duplicates
         const newBtn = clearAllBtn.cloneNode(true);
         clearAllBtn.parentNode.replaceChild(newBtn, clearAllBtn);
         
@@ -2167,5 +2225,40 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Remove inline onclick attribute if exists
         newBtn.removeAttribute('onclick');
+        
+        console.log('Clear All button initialized successfully');
     }
+});
+
+// Debug function to verify API endpoints
+function checkApiEndpoints() {
+    console.group('API Endpoint Check');
+    
+    // Check timetable endpoints
+    console.log('Checking timetable endpoints...');
+    fetch(`${API_BASE_URL}/timetable`, { method: 'HEAD' })
+        .then(res => console.log(`/timetable endpoint: ${res.status} ${res.statusText}`))
+        .catch(err => console.error('/timetable endpoint error:', err));
+    
+    // Check announcements endpoints
+    console.log('Checking announcements endpoints...');
+    fetch(`${API_BASE_URL}/announcements`, { method: 'HEAD' })
+        .then(res => console.log(`/announcements endpoint: ${res.status} ${res.statusText}`))
+        .catch(err => console.error('/announcements endpoint error:', err));
+    
+    // Check notices endpoints
+    console.log('Checking notices endpoints...');
+    fetch(`${API_BASE_URL}/notices`, { method: 'HEAD' })
+        .then(res => console.log(`/notices endpoint: ${res.status} ${res.statusText}`))
+        .catch(err => console.error('/notices endpoint error:', err));
+    
+    console.groupEnd();
+}
+
+// Run this check when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Other initialization code...
+    
+    // Debug API endpoints
+    checkApiEndpoints();
 });
