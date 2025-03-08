@@ -1861,47 +1861,72 @@ function displayNotices(notices) {
 }
 
 /**
- * Displays and manages saved courses, teachers, and venues from localStorage
+ * Displays and manages saved courses, teachers, and venues from the API
  * This function creates a modal dialog to view and manage all saved autocomplete data
  */
 function manageSavedData() {
-    console.log('Managing saved data...');
+    console.log('Managing saved data from API...');
     
-    try {
-        // Retrieve saved data from localStorage with fallbacks to empty arrays
-        const uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
-        const uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
-        const uniqueVenues = JSON.parse(localStorage.getItem('uniqueVenues')) || [];
+    // Create modal container immediately to show loading state
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '1000';
+    
+    // Initial loading state
+    modal.innerHTML = `
+        <div class="saved-data-modal" style="background-color: #fff; padding: 20px; border-radius: 5px; max-width: 600px; width: 90%;">
+            <h3>Loading Saved Data...</h3>
+            <p>Please wait...</p>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Fetch all data types from API
+    Promise.all([
+        fetch(`${API_BASE_URL}/courses`).then(res => res.json()).catch(() => []),
+        fetch(`${API_BASE_URL}/teachers`).then(res => res.json()).catch(() => []),
+        fetch(`${API_BASE_URL}/venues`).then(res => res.json()).catch(() => [])
+    ])
+    .then(([courses, teachers, venues]) => {
+        // Create lists with delete buttons for each item
+        let coursesList = courses.map(course => 
+            `<li class="saved-data-item">${course.name} <button class="delete-saved-data" data-type="course" data-id="${course.id}">Delete</button></li>`).join('');
         
-        // Create HTML lists with delete buttons for each item
-        let coursesList = uniqueCourses.map(course => 
-            `<li class="saved-data-item">${course} <button class="delete-saved-data" data-type="course" data-value="${course}">Delete</button></li>`).join('');
+        let teachersList = teachers.map(teacher => 
+            `<li class="saved-data-item">${teacher.name} <button class="delete-saved-data" data-type="teacher" data-id="${teacher.id}">Delete</button></li>`).join('');
         
-        let teachersList = uniqueTeachers.map(teacher => 
-            `<li class="saved-data-item">${teacher} <button class="delete-saved-data" data-type="teacher" data-value="${teacher}">Delete</button></li>`).join('');
+        let venuesList = venues.map(venue => 
+            `<li class="saved-data-item">${venue.name} <button class="delete-saved-data" data-type="venue" data-id="${venue.id}">Delete</button></li>`).join('');
         
-        let venuesList = uniqueVenues.map(venue => 
-            `<li class="saved-data-item">${venue} <button class="delete-saved-data" data-type="venue" data-value="${venue}">Delete</button></li>`).join('');
-        
-        // Create modal content with all data sections
+        // Create modal content
         const modalContent = `
             <div class="saved-data-modal">
                 <h3>Manage Saved Data</h3>
                 
                 <div class="saved-data-section">
-                    <h4>Saved Courses (${uniqueCourses.length})</h4>
+                    <h4>Saved Courses (${courses.length})</h4>
                     <ul class="saved-data-list">${coursesList || '<li class="empty-list">No saved courses</li>'}</ul>
                     <button class="clear-category-btn" data-type="courses">Clear All Courses</button>
                 </div>
                 
                 <div class="saved-data-section">
-                    <h4>Saved Teachers (${uniqueTeachers.length})</h4>
+                    <h4>Saved Teachers (${teachers.length})</h4>
                     <ul class="saved-data-list">${teachersList || '<li class="empty-list">No saved teachers</li>'}</ul>
                     <button class="clear-category-btn" data-type="teachers">Clear All Teachers</button>
                 </div>
                 
                 <div class="saved-data-section">
-                    <h4>Saved Venues (${uniqueVenues.length})</h4>
+                    <h4>Saved Venues (${venues.length})</h4>
                     <ul class="saved-data-list">${venuesList || '<li class="empty-list">No saved venues</li>'}</ul>
                     <button class="clear-category-btn" data-type="venues">Clear All Venues</button>
                 </div>
@@ -1913,23 +1938,10 @@ function manageSavedData() {
             </div>
         `;
         
-        // Create and style the modal overlay
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
+        // Update the modal content
         modal.innerHTML = modalContent;
         
-        // Add some inline styles if your CSS doesn't already handle this
-        modal.style.position = 'fixed';
-        modal.style.top = '0';
-        modal.style.left = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        modal.style.display = 'flex';
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
-        modal.style.zIndex = '1000';
-        
+        // Style the modal dialog
         const modalDialog = modal.querySelector('.saved-data-modal');
         if (modalDialog) {
             modalDialog.style.backgroundColor = '#fff';
@@ -1940,9 +1952,6 @@ function manageSavedData() {
             modalDialog.style.maxHeight = '80vh';
             modalDialog.style.overflow = 'auto';
         }
-        
-        // Add modal to the DOM
-        document.body.appendChild(modal);
         
         // Close button handler
         const closeBtn = document.getElementById('close-saved-data-modal');
@@ -1956,31 +1965,26 @@ function manageSavedData() {
         document.querySelectorAll('.delete-saved-data').forEach(btn => {
             btn.addEventListener('click', function() {
                 const type = this.getAttribute('data-type');
-                const value = this.getAttribute('data-value');
+                const id = this.getAttribute('data-id');
                 
-                if (type === 'course') {
-                    let uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
-                    uniqueCourses = uniqueCourses.filter(course => course !== value);
-                    localStorage.setItem('uniqueCourses', JSON.stringify(uniqueCourses));
-                } else if (type === 'teacher') {
-                    let uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
-                    uniqueTeachers = uniqueTeachers.filter(teacher => teacher !== value);
-                    localStorage.setItem('uniqueTeachers', JSON.stringify(uniqueTeachers));
-                } else if (type === 'venue') {
-                    let uniqueVenues = JSON.parse(localStorage.getItem('uniqueVenues')) || [];
-                    uniqueVenues = uniqueVenues.filter(venue => venue !== value);
-                    localStorage.setItem('uniqueVenues', JSON.stringify(uniqueVenues));
-                }
-                
-                // Remove the modal
-                document.body.removeChild(modal);
-                
-                // Reopen the modal with updated data
-                manageSavedData();
-                
-                // Update form datalists
-                if (typeof loadSavedValues === 'function') {
-                    loadSavedValues();
+                if (confirm(`Are you sure you want to delete this ${type}?`)) {
+                    // Delete the item via API
+                    fetch(`${API_BASE_URL}/${type}s/${id}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Refresh the modal
+                        document.body.removeChild(modal);
+                        manageSavedData();
+                        
+                        // Reload saved values for autocomplete
+                        loadSavedValues();
+                    })
+                    .catch(error => {
+                        console.error(`Error deleting ${type}:`, error);
+                        alert(`Failed to delete ${type}. Please try again.`);
+                    });
                 }
             });
         });
@@ -1991,24 +1995,23 @@ function manageSavedData() {
                 const type = this.getAttribute('data-type');
                 
                 if (confirm(`Are you sure you want to clear all saved ${type}?`)) {
-                    if (type === 'courses') {
-                        localStorage.removeItem('uniqueCourses');
-                    } else if (type === 'teachers') {
-                        localStorage.removeItem('uniqueTeachers');
-                    } else if (type === 'venues') {
-                        localStorage.removeItem('uniqueVenues');
-                    }
-                    
-                    // Remove the modal
-                    document.body.removeChild(modal);
-                    
-                    // Reopen the modal with updated data
-                    manageSavedData();
-                    
-                    // Update form datalists
-                    if (typeof loadSavedValues === 'function') {
+                    // Clear all items of this type via API
+                    fetch(`${API_BASE_URL}/${type}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Refresh the modal
+                        document.body.removeChild(modal);
+                        manageSavedData();
+                        
+                        // Reload saved values for autocomplete
                         loadSavedValues();
-                    }
+                    })
+                    .catch(error => {
+                        console.error(`Error clearing ${type}:`, error);
+                        alert(`Failed to clear ${type}. Please try again.`);
+                    });
                 }
             });
         });
@@ -2017,27 +2020,91 @@ function manageSavedData() {
         const clearAllBtn = document.querySelector('.clear-all-data-btn');
         if (clearAllBtn) {
             clearAllBtn.addEventListener('click', function() {
-                if (confirm('Are you sure you want to clear ALL saved courses, teachers, and venues?')) {
-                    localStorage.removeItem('uniqueCourses');
-                    localStorage.removeItem('uniqueTeachers');
-                    localStorage.removeItem('uniqueVenues');
-                    
-                    // Remove the modal
-                    document.body.removeChild(modal);
-                    
-                    // Update form datalists
-                    if (typeof loadSavedValues === 'function') {
+                if (confirm('Are you sure you want to clear ALL saved data?')) {
+                    // Make separate requests to clear all data types
+                    Promise.all([
+                        fetch(`${API_BASE_URL}/courses`, { method: 'DELETE' }),
+                        fetch(`${API_BASE_URL}/teachers`, { method: 'DELETE' }),
+                        fetch(`${API_BASE_URL}/venues`, { method: 'DELETE' })
+                    ])
+                    .then(() => {
+                        alert('All saved data has been cleared successfully!');
+                        document.body.removeChild(modal);
                         loadSavedValues();
-                    }
-                    
-                    alert('All saved data has been cleared successfully!');
+                    })
+                    .catch(error => {
+                        console.error('Error clearing all data:', error);
+                        alert('Failed to clear all data. Please try again.');
+                    });
                 }
             });
         }
-    } catch (error) {
-        console.error('Error in manageSavedData function:', error);
-        alert('There was a problem managing saved data. Please try again.');
-    }
+    })
+    .catch(error => {
+        console.error('Error fetching saved data:', error);
+        modal.innerHTML = `
+            <div class="saved-data-modal" style="background-color: #fff; padding: 20px; border-radius: 5px; max-width: 600px; width: 90%;">
+                <h3>Error Loading Data</h3>
+                <p>There was a problem loading the saved data. Please try again.</p>
+                <button id="close-error-modal">Close</button>
+            </div>
+        `;
+        
+        document.getElementById('close-error-modal').addEventListener('click', function() {
+            document.body.removeChild(modal);
+        });
+    });
+}
+
+// Updated loadSavedValues function to use API instead of localStorage
+function loadSavedValues() {
+    // Fetch courses for autocomplete
+    fetch(`${API_BASE_URL}/courses`)
+        .then(res => res.json())
+        .then(courses => {
+            const courseDatalist = document.getElementById('course-list');
+            if (courseDatalist) {
+                courseDatalist.innerHTML = '';
+                courses.forEach(course => {
+                    const option = document.createElement('option');
+                    option.value = course.name;
+                    courseDatalist.appendChild(option);
+                });
+            }
+        })
+        .catch(err => console.error('Error loading courses:', err));
+
+    // Fetch teachers for autocomplete
+    fetch(`${API_BASE_URL}/teachers`)
+        .then(res => res.json())
+        .then(teachers => {
+            const teacherDatalist = document.getElementById('teacher-list');
+            if (teacherDatalist) {
+                teacherDatalist.innerHTML = '';
+                teachers.forEach(teacher => {
+                    const option = document.createElement('option');
+                    option.value = teacher.name;
+                    teacherDatalist.appendChild(option);
+                });
+            }
+        })
+        .catch(err => console.error('Error loading teachers:', err));
+
+    // Fetch venues for autocomplete
+    fetch(`${API_BASE_URL}/venues`)
+        .then(res => res.json())
+        .then(venues => {
+            const venueDatalist = document.getElementById('venue-list');
+            if (venueDatalist) {
+                venueDatalist.innerHTML = '';
+                venues.forEach(venue => {
+                    const option = document.createElement('option');
+                    option.value = venue.name;
+                    venueDatalist.appendChild(option);
+                });
+            }
+        })
+        .catch(err => console.error('Error loading venues:', err));
 }
 
 // Make sure the function is attached to the button when the page loads
