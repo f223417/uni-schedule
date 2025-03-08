@@ -2283,3 +2283,159 @@ document.addEventListener('DOMContentLoaded', function() {
     // Debug API endpoints
     checkApiEndpoints();
 });
+
+// 1. QUIET VERSION OF DATA LOADING FUNCTIONS
+// This prevents the unnecessary error alerts when reloading data
+
+// Silent fetch helper
+function fetchQuietly(url) {
+  return fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+      return response.json();
+    })
+    .catch(error => {
+      console.error(`Error fetching ${url}:`, error);
+      return []; // Return empty array on error
+    });
+}
+
+// 2. REPLACEMENT DELETE FUNCTION
+// Replace your existing deleteEntry function with this one
+function deleteEntry(type, id, event) {
+  // Get the button that was clicked
+  const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
+  if (!button) return;
+  
+  // Determine proper naming for the item
+  const itemTypes = {
+    'timetable': 'entry',
+    'announcement': 'announcement',
+    'notice': 'notice'
+  };
+  const itemName = itemTypes[type] || 'item';
+  
+  if (confirm(`Are you sure you want to delete this ${itemName}?`)) {
+    // Disable button and show loading state
+    const originalText = button.textContent;
+    button.textContent = 'Deleting...';
+    button.disabled = true;
+    
+    // Determine endpoint
+    let endpoint = `${API_BASE_URL}/${type}/${id}`;
+    if (type === 'announcement') endpoint = `${API_BASE_URL}/announcements/${id}`;
+    if (type === 'notice') endpoint = `${API_BASE_URL}/notices/${id}`;
+    
+    // Delete the item
+    fetch(endpoint, { method: 'DELETE' })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(() => {
+        console.log(`${itemName} deleted successfully`);
+        
+        // Silently reload the appropriate data
+        if (type === 'timetable') {
+          fetchQuietly(`${API_BASE_URL}/timetable`).then(data => displayTimetableEntries(data));
+        } else if (type === 'announcement') {
+          fetchQuietly(`${API_BASE_URL}/announcements`).then(data => displayAnnouncements(data));
+        } else if (type === 'notice') {
+          fetchQuietly(`${API_BASE_URL}/notices`).then(data => displayNotices(data));
+        }
+      })
+      .catch(error => {
+        console.error(`Error deleting ${itemName}:`, error);
+        alert(`Failed to delete ${itemName}. ${error.message}`);
+      })
+      .finally(() => {
+        // Reset button state
+        button.textContent = originalText;
+        button.disabled = false;
+      });
+  }
+}
+
+// 3. REPLACEMENT CLEAR ALL FUNCTION
+// Replace your existing clearAllEntries function with this one
+function clearAllEntries(event) {
+  if (confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
+    const button = event.target;
+    const originalText = button.textContent;
+    button.textContent = 'Clearing...';
+    button.disabled = true;
+    
+    // Try with localStorage first (as a fallback)
+    localStorage.removeItem('timetableEntries');
+    localStorage.removeItem('announcements');
+    localStorage.removeItem('notices');
+    
+    // Sequential API calls to ensure proper completion
+    fetch(`${API_BASE_URL}/timetable/clear`, { method: 'DELETE' })
+      .catch(() => fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' }))
+      .catch(() => fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' }))
+      .then(() => fetch(`${API_BASE_URL}/announcements/clear`, { method: 'DELETE' }))
+      .catch(() => fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' }))
+      .catch(() => fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' }))
+      .then(() => fetch(`${API_BASE_URL}/notices/clear`, { method: 'DELETE' }))
+      .catch(() => fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' }))
+      .catch(() => fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' }))
+      .then(() => {
+        console.log('All entries cleared successfully');
+        
+        // Reload data silently
+        fetchQuietly(`${API_BASE_URL}/timetable`).then(data => displayTimetableEntries(data));
+        fetchQuietly(`${API_BASE_URL}/announcements`).then(data => displayAnnouncements(data));
+        fetchQuietly(`${API_BASE_URL}/notices`).then(data => displayNotices(data));
+        
+        // Show success message
+        alert('All entries cleared successfully!');
+      })
+      .catch(error => {
+        console.error('Error clearing all entries:', error);
+        alert(`Error clearing entries. See console for details.`);
+      })
+      .finally(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+      });
+  }
+}
+
+// 4. CLEAN SETUP OF EVENT LISTENERS
+// This removes all previous event handlers to avoid conflicts
+document.addEventListener('DOMContentLoaded', function() {
+  // REMOVE ALL EXISTING EVENT HANDLERS
+  
+  // Setup Clear All button - remove & recreate to eliminate duplicate handlers
+  const clearAllBtn = document.getElementById('clear-all');
+  if (clearAllBtn) {
+    const newClearBtn = clearAllBtn.cloneNode(true);
+    clearAllBtn.parentNode.replaceChild(newClearBtn, clearAllBtn);
+    newClearBtn.addEventListener('click', clearAllEntries);
+    
+    // Remove any inline onclick attributes
+    newClearBtn.removeAttribute('onclick');
+  }
+  
+  // Global event delegation for delete buttons
+  document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('delete-btn')) {
+      event.preventDefault(); // Prevent any default behavior
+      const id = event.target.getAttribute('data-id');
+      const type = event.target.getAttribute('data-type') || 'timetable';
+      
+      if (id) {
+        // Pass the event to provide the button element
+        deleteEntry(type, id, event);
+      }
+    }
+  });
+  
+  // Load data silently on page load
+  fetchQuietly(`${API_BASE_URL}/timetable`).then(data => displayTimetableEntries(data));
+  fetchQuietly(`${API_BASE_URL}/announcements`).then(data => displayAnnouncements(data));
+  fetchQuietly(`${API_BASE_URL}/notices`).then(data => displayNotices(data));
+});
