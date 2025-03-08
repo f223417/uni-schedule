@@ -1091,104 +1091,104 @@ function setupFormHandlers() {
 
 // Function to display timetable entries
 function displayTimetableEntries(entries) {
-    const container = document.getElementById('timetable-entries');
-    if (!container) return;
-    
-    container.innerHTML = entries.length === 0 ? 
-        '<tr><td colspan="7">No timetable entries found</td></tr>' : '';
-    
-    entries.forEach(entry => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${entry.week || ''}</td>
-            <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
-            <td>${entry.course || ''}</td>
-            <td>${entry.venue || ''}</td>
-            <td>${entry.teacher || ''}</td>
-            <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
-            <td>
-                <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
-            </td>
-        `;
-        container.appendChild(row);
-    });
+  const container = document.getElementById('timetable-entries');
+  if (!container) return;
+  
+  container.innerHTML = entries.length === 0 ? 
+      '<tr><td colspan="7">No timetable entries found</td></tr>' : '';
+  
+  entries.forEach(entry => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+          <td>${entry.week || ''}</td>
+          <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
+          <td>${entry.course || ''}</td>
+          <td>${entry.venue || ''}</td>
+          <td>${entry.teacher || ''}</td>
+          <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
+          <td>
+              <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
+          </td>
+      `;
+      container.appendChild(row);
+  });
 }
 
 // Function to display announcements
 function displayAnnouncements(announcements) {
-    const container = document.getElementById('announcement-entries');
-    if (!container) {
-        console.error('Announcement container not found');
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (announcements.length === 0) {
-        container.innerHTML = '<p>No announcements found</p>';
-        return;
-    }
-    
-    announcements.forEach(announcement => {
-        const div = document.createElement('div');
-        div.className = 'announcement-item';
-        
-        div.innerHTML = `
-            <p><strong>${announcement.announcement}</strong></p>
-            <p>Posted: ${new Date(announcement.date).toLocaleDateString()}</p>
-            <p>Expires: ${new Date(announcement.expiryDate).toLocaleDateString()}</p>
-            <button class="delete-btn" data-id="${announcement.id}" data-type="announcement">Delete</button>
-            <hr>
-        `;
-        
-        container.appendChild(div);
-    });
-    
-    // Add delete button event listeners
-    document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            deleteAnnouncement(id);
-        });
-    });
+  const container = document.getElementById('announcement-entries');
+  if (!container) {
+      console.error('Announcement container not found');
+      return;
+  }
+  
+  container.innerHTML = '';
+  
+  if (announcements.length === 0) {
+      container.innerHTML = '<p>No announcements found</p>';
+      return;
+  }
+  
+  announcements.forEach(announcement => {
+      const div = document.createElement('div');
+      div.className = 'announcement-item';
+      
+      div.innerHTML = `
+          <p><strong>${announcement.announcement}</strong></p>
+          <p>Posted: ${new Date(announcement.date).toLocaleDateString()}</p>
+          <p>Expires: ${new Date(announcement.expiryDate).toLocaleDateString()}</p>
+          <button class="delete-btn" data-id="${announcement.id}" data-type="announcement">Delete</button>
+          <hr>
+      `;
+      
+      container.appendChild(div);
+  });
+  
+  // Add delete button event listeners
+  document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
+      button.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          deleteAnnouncement(id);
+      });
+  });
 }
 
 // Function to display notices
 function displayNotices(notices) {
-    const container = document.getElementById('notice-entries');
-    if (!container) {
-        console.error('Notice container not found');
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (notices.length === 0) {
-        container.innerHTML = '<p>No notices found</p>';
-        return;
-    }
-    
-    notices.forEach(notice => {
-        const div = document.createElement('div');
-        div.className = 'notice-item';
-        
-        div.innerHTML = `
-            <p><strong>${notice.notice}</strong></p>
-            <p>Posted: ${new Date(notice.date).toLocaleDateString()}</p>
-            <button class="delete-btn" data-id="${notice.id}" data-type="notice">Delete</button>
-            <hr>
-        `;
-        
-        container.appendChild(div);
-    });
-    
-    // Add delete button event listeners
-    document.querySelectorAll('button[data-type="notice"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            deleteNotice(id);
-        });
-    });
+  const container = document.getElementById('notice-entries');
+  if (!container) {
+      console.error('Notice container not found');
+      return;
+  }
+  
+  container.innerHTML = '';
+  
+  if (notices.length === 0) {
+      container.innerHTML = '<p>No notices found</p>';
+      return;
+  }
+  
+  notices.forEach(notice => {
+      const div = document.createElement('div');
+      div.className = 'notice-item';
+      
+      div.innerHTML = `
+          <p><strong>${notice.notice}</strong></p>
+          <p>Posted: ${new Date(notice.date).toLocaleDateString()}</p>
+          <button class="delete-btn" data-id="${notice.id}" data-type="notice">Delete</button>
+          <hr>
+      `;
+      
+      container.appendChild(div);
+  });
+  
+  // Add delete button event listeners
+  document.querySelectorAll('button[data-type="notice"]').forEach(button => {
+      button.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          deleteNotice(id);
+      });
+  });
 }
 
 // Function to submit timetable entry
@@ -1726,104 +1726,104 @@ function loadNotices() {
 
 // Function to display timetable entries
 function displayTimetableEntries(entries) {
-    const container = document.getElementById('timetable-entries');
-    if (!container) return;
-    
-    container.innerHTML = entries.length === 0 ? 
-        '<tr><td colspan="7">No timetable entries found</td></tr>' : '';
-    
-    entries.forEach(entry => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${entry.week || ''}</td>
-            <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
-            <td>${entry.course || ''}</td>
-            <td>${entry.venue || ''}</td>
-            <td>${entry.teacher || ''}</td>
-            <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
-            <td>
-                <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
-            </td>
-        `;
-        container.appendChild(row);
-    });
+  const container = document.getElementById('timetable-entries');
+  if (!container) return;
+  
+  container.innerHTML = entries.length === 0 ? 
+      '<tr><td colspan="7">No timetable entries found</td></tr>' : '';
+  
+  entries.forEach(entry => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+          <td>${entry.week || ''}</td>
+          <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
+          <td>${entry.course || ''}</td>
+          <td>${entry.venue || ''}</td>
+          <td>${entry.teacher || ''}</td>
+          <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
+          <td>
+              <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
+          </td>
+      `;
+      container.appendChild(row);
+  });
 }
 
 // Function to display announcements
 function displayAnnouncements(announcements) {
-    const container = document.getElementById('announcement-entries');
-    if (!container) {
-        console.error('Announcement container not found');
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (announcements.length === 0) {
-        container.innerHTML = '<p>No announcements found</p>';
-        return;
-    }
-    
-    announcements.forEach(announcement => {
-        const div = document.createElement('div');
-        div.className = 'announcement-item';
-        
-        div.innerHTML = `
-            <p><strong>${announcement.announcement}</strong></p>
-            <p>Posted: ${new Date(announcement.date).toLocaleDateString()}</p>
-            <p>Expires: ${new Date(announcement.expiryDate).toLocaleDateString()}</p>
-            <button class="delete-btn" data-id="${announcement.id}" data-type="announcement">Delete</button>
-            <hr>
-        `;
-        
-        container.appendChild(div);
-    });
-    
-    // Add delete button event listeners
-    document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            deleteAnnouncement(id);
-        });
-    });
+  const container = document.getElementById('announcement-entries');
+  if (!container) {
+      console.error('Announcement container not found');
+      return;
+  }
+  
+  container.innerHTML = '';
+  
+  if (announcements.length === 0) {
+      container.innerHTML = '<p>No announcements found</p>';
+      return;
+  }
+  
+  announcements.forEach(announcement => {
+      const div = document.createElement('div');
+      div.className = 'announcement-item';
+      
+      div.innerHTML = `
+          <p><strong>${announcement.announcement}</strong></p>
+          <p>Posted: ${new Date(announcement.date).toLocaleDateString()}</p>
+          <p>Expires: ${new Date(announcement.expiryDate).toLocaleDateString()}</p>
+          <button class="delete-btn" data-id="${announcement.id}" data-type="announcement">Delete</button>
+          <hr>
+      `;
+      
+      container.appendChild(div);
+  });
+  
+  // Add delete button event listeners
+  document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
+      button.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          deleteAnnouncement(id);
+      });
+  });
 }
 
 // Function to display notices
 function displayNotices(notices) {
-    const container = document.getElementById('notice-entries');
-    if (!container) {
-        console.error('Notice container not found');
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (notices.length === 0) {
-        container.innerHTML = '<p>No notices found</p>';
-        return;
-    }
-    
-    notices.forEach(notice => {
-        const div = document.createElement('div');
-        div.className = 'notice-item';
-        
-        div.innerHTML = `
-            <p><strong>${notice.notice}</strong></p>
-            <p>Posted: ${new Date(notice.date).toLocaleDateString()}</p>
-            <button class="delete-btn" data-id="${notice.id}" data-type="notice">Delete</button>
-            <hr>
-        `;
-        
-        container.appendChild(div);
-    });
-    
-    // Add delete button event listeners
-    document.querySelectorAll('button[data-type="notice"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            deleteNotice(id);
-        });
-    });
+  const container = document.getElementById('notice-entries');
+  if (!container) {
+      console.error('Notice container not found');
+      return;
+  }
+  
+  container.innerHTML = '';
+  
+  if (notices.length === 0) {
+      container.innerHTML = '<p>No notices found</p>';
+      return;
+  }
+  
+  notices.forEach(notice => {
+      const div = document.createElement('div');
+      div.className = 'notice-item';
+      
+      div.innerHTML = `
+          <p><strong>${notice.notice}</strong></p>
+          <p>Posted: ${new Date(notice.date).toLocaleDateString()}</p>
+          <button class="delete-btn" data-id="${notice.id}" data-type="notice">Delete</button>
+          <hr>
+      `;
+      
+      container.appendChild(div);
+  });
+  
+  // Add delete button event listeners
+  document.querySelectorAll('button[data-type="notice"]').forEach(button => {
+      button.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          deleteNotice(id);
+      });
+  });
 }
 
 /**
