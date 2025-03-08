@@ -1092,21 +1092,13 @@ function setupFormHandlers() {
 // Function to display timetable entries
 function displayTimetableEntries(entries) {
     const container = document.getElementById('timetable-entries');
-    if (!container) {
-        console.error('Timetable entries container not found');
-        return;
-    }
+    if (!container) return;
     
-    container.innerHTML = '';
-    
-    if (entries.length === 0) {
-        container.innerHTML = '<tr><td colspan="7">No timetable entries found</td></tr>';
-        return;
-    }
+    container.innerHTML = entries.length === 0 ? 
+        '<tr><td colspan="7">No timetable entries found</td></tr>' : '';
     
     entries.forEach(entry => {
         const row = document.createElement('tr');
-        
         row.innerHTML = `
             <td>${entry.week || ''}</td>
             <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
@@ -1118,16 +1110,7 @@ function displayTimetableEntries(entries) {
                 <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
             </td>
         `;
-        
         container.appendChild(row);
-    });
-    
-    // Add delete button event listeners
-    document.querySelectorAll('button[data-type="timetable"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            deleteTimetableEntry(id);
-        });
     });
 }
 
@@ -1744,21 +1727,13 @@ function loadNotices() {
 // Function to display timetable entries
 function displayTimetableEntries(entries) {
     const container = document.getElementById('timetable-entries');
-    if (!container) {
-        console.error('Timetable entries container not found');
-        return;
-    }
+    if (!container) return;
     
-    container.innerHTML = '';
-    
-    if (entries.length === 0) {
-        container.innerHTML = '<tr><td colspan="7">No timetable entries found</td></tr>';
-        return;
-    }
+    container.innerHTML = entries.length === 0 ? 
+        '<tr><td colspan="7">No timetable entries found</td></tr>' : '';
     
     entries.forEach(entry => {
         const row = document.createElement('tr');
-        
         row.innerHTML = `
             <td>${entry.week || ''}</td>
             <td>${Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || ''}</td>
@@ -1770,16 +1745,7 @@ function displayTimetableEntries(entries) {
                 <button class="delete-btn" data-id="${entry.id}" data-type="timetable">Delete</button>
             </td>
         `;
-        
         container.appendChild(row);
-    });
-    
-    // Add delete button event listeners
-    document.querySelectorAll('button[data-type="timetable"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            deleteTimetableEntry(id);
-        });
     });
 }
 
@@ -2119,6 +2085,113 @@ document.addEventListener('DOMContentLoaded', function() {
         newBtn.addEventListener('click', manageSavedData);
         
         // Remove inline onclick attribute if it exists
+        newBtn.removeAttribute('onclick');
+    }
+});
+
+// Consolidated delete function for all entry types
+function deleteEntry(type, id) {
+    const types = {
+        'timetable': 'entry',
+        'announcement': 'announcement', 
+        'notice': 'notice'
+    };
+    
+    const itemName = types[type] || 'item';
+    
+    if (confirm(`Are you sure you want to delete this ${itemName}?`)) {
+        fetch(`${API_BASE_URL}/${type}/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.message || `Error deleting ${itemName}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`${itemName} deleted:`, data);
+            alert(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} deleted successfully!`);
+            loadAllData(); // Reload everything
+        })
+        .catch(error => {
+            console.error(`Error deleting ${itemName}:`, error);
+            alert(`Failed to delete ${itemName}: ${error.message}`);
+        });
+    }
+}
+
+// Use event delegation for delete buttons
+document.addEventListener('click', function(event) {
+    const target = event.target;
+    
+    // Check if the clicked element is a delete button
+    if (target.classList.contains('delete-btn')) {
+        const id = target.getAttribute('data-id');
+        const type = target.getAttribute('data-type') || 'timetable';
+        
+        if (id) {
+            deleteEntry(type, id);
+        } else {
+            console.error('Delete button missing data-id attribute');
+        }
+    }
+});
+
+// Add this function to handle clearing all entries
+function clearAllEntries() {
+    if (confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
+        // Show loading indicator
+        const clearAllBtn = document.getElementById('clear-all');
+        const originalText = clearAllBtn.textContent;
+        clearAllBtn.textContent = 'Clearing...';
+        clearAllBtn.disabled = true;
+        
+        // Sequential API calls to clear all data types
+        fetch(`${API_BASE_URL}/timetable/all`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to clear timetable entries');
+            return fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' });
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to clear announcements');
+            return fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' });
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to clear notices');
+            
+            // Success - update UI
+            loadAllData();
+            alert('All entries have been cleared successfully!');
+        })
+        .catch(error => {
+            console.error('Error clearing entries:', error);
+            alert(`Error clearing entries: ${error.message}`);
+        })
+        .finally(() => {
+            // Reset button state
+            clearAllBtn.textContent = originalText;
+            clearAllBtn.disabled = false;
+        });
+    }
+}
+
+// Attach the clearAllEntries function to the button on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const clearAllBtn = document.getElementById('clear-all');
+    if (clearAllBtn) {
+        // Remove any existing handlers by cloning and replacing
+        const newBtn = clearAllBtn.cloneNode(true);
+        clearAllBtn.parentNode.replaceChild(newBtn, clearAllBtn);
+        
+        // Add the event handler to the new button
+        newBtn.addEventListener('click', clearAllEntries);
+        
+        // Remove inline onclick attribute if exists
         newBtn.removeAttribute('onclick');
     }
 });
