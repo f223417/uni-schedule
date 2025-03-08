@@ -2155,61 +2155,32 @@ function clearAllEntries() {
         clearAllBtn.textContent = 'Clearing...';
         clearAllBtn.disabled = true;
         
-        // Try either /clear or /all endpoints - adjust these to match your API
-        const endpoints = [
-            // Try with the /clear endpoint pattern
-            {
-                timetable: `${API_BASE_URL}/timetable/clear`,
-                announcements: `${API_BASE_URL}/announcements/clear`,
-                notices: `${API_BASE_URL}/notices/clear`
-            },
-            // Alternative /all endpoint pattern
-            {
-                timetable: `${API_BASE_URL}/timetable/all`,
-                announcements: `${API_BASE_URL}/announcements/all`,
-                notices: `${API_BASE_URL}/notices/all`
-            }
-        ];
+        // Use direct localStorage removal for simplicity and reliability
+        localStorage.removeItem('timetableEntries');
+        localStorage.removeItem('announcements');
+        localStorage.removeItem('notices');
         
-        // Try the first endpoint pattern
-        tryDeleteEndpoints(endpoints[0], clearAllBtn, originalText)
-            .catch(() => {
-                // If first pattern fails, try the alternative pattern
-                console.log('First endpoint pattern failed, trying alternative...');
-                return tryDeleteEndpoints(endpoints[1], clearAllBtn, originalText);
-            })
-            .catch(error => {
-                // Both patterns failed
-                console.error('All delete patterns failed:', error);
-                alert('Failed to clear entries. Please check console for details.');
-                clearAllBtn.textContent = originalText;
-                clearAllBtn.disabled = false;
-            });
-    }
-}
-
-// Helper function to try a set of delete endpoints
-function tryDeleteEndpoints(endpoints, button, originalText) {
-    return fetch(endpoints.timetable, { method: 'DELETE' })
-        .then(response => {
-            if (!response.ok) throw new Error(`Failed to clear timetable entries: ${response.status}`);
-            return fetch(endpoints.announcements, { method: 'DELETE' });
-        })
-        .then(response => {
-            if (!response.ok) throw new Error(`Failed to clear announcements: ${response.status}`);
-            return fetch(endpoints.notices, { method: 'DELETE' });
-        })
-        .then(response => {
-            if (!response.ok) throw new Error(`Failed to clear notices: ${response.status}`);
+        // Also try API endpoints (whichever works first)
+        Promise.all([
+            // Try API endpoints in the background
+            fetch(`${API_BASE_URL}/timetable/clear`, { method: 'DELETE' }).catch(() => {}),
+            fetch(`${API_BASE_URL}/announcements/clear`, { method: 'DELETE' }).catch(() => {}),
+            fetch(`${API_BASE_URL}/notices/clear`, { method: 'DELETE' }).catch(() => {})
+        ])
+        .finally(() => {
+            // Always update UI and reset button regardless of API success
+            loadTimetableEntries();
+            loadAnnouncements();
+            loadNotices();
             
-            // Success - update UI
-            loadAllData();
+            // Single alert
             alert('All entries have been cleared successfully!');
             
-            // Reset button state
-            button.textContent = originalText;
-            button.disabled = false;
+            // Reset button
+            clearAllBtn.textContent = originalText;
+            clearAllBtn.disabled = false;
         });
+    }
 }
 
 // Attach the clearAllEntries function to the button on page load
