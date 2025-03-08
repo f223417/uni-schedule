@@ -2080,7 +2080,7 @@ function deleteEntry(type, id) {
         button.textContent = 'Deleting...';
         button.disabled = true;
         
-        // Correct the API endpoint based on type
+        // Determine the correct API endpoint
         let endpoint = '';
         if (type === 'timetable') {
             endpoint = `${API_BASE_URL}/timetable/${id}`;
@@ -2094,30 +2094,22 @@ function deleteEntry(type, id) {
             method: 'DELETE'
         })
         .then(response => {
-            // Check for HTTP error status
             if (!response.ok) {
                 return response.text().then(text => {
-                    throw new Error(`Server responded with status ${response.status}: ${text || 'No error details provided'}`);
+                    throw new Error(`Server error: ${text || response.status}`);
                 });
             }
             return response.json();
         })
         .then(data => {
             console.log(`${itemName} deleted:`, data);
-            alert(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} deleted successfully!`);
             
-            // Reload only the affected data type
-            if (type === 'timetable') {
-                loadTimetableEntries();
-            } else if (type === 'announcement') {
-                loadAnnouncements();
-            } else if (type === 'notice') {
-                loadNotices();
-            }
+            // Silently reload data without alerts
+            silentlyReloadData(type);
         })
         .catch(error => {
             console.error(`Error deleting ${itemName}:`, error);
-            alert(`Failed to delete ${itemName}. Error: ${error.message}`);
+            alert(`Failed to delete ${itemName}. ${error.message}`);
         })
         .finally(() => {
             // Reset button state
@@ -2127,26 +2119,7 @@ function deleteEntry(type, id) {
     }
 }
 
-// Use event delegation for delete buttons
-document.addEventListener('click', function(event) {
-    const target = event.target;
-    
-    // Check if the clicked element is a delete button
-    if (target.classList.contains('delete-btn')) {
-        event.preventDefault();
-        const id = target.getAttribute('data-id');
-        const type = target.getAttribute('data-type') || 'timetable';
-        
-        if (id) {
-            deleteEntry(type, id);
-        } else {
-            console.error('Delete button missing data-id attribute');
-            alert('Error: Could not identify the item to delete');
-        }
-    }
-});
-
-// Add this function to handle clearing all entries
+// Clear all entries function
 function clearAllEntries() {
     if (confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
         // Show loading indicator
@@ -2155,50 +2128,127 @@ function clearAllEntries() {
         clearAllBtn.textContent = 'Clearing...';
         clearAllBtn.disabled = true;
         
-        // Use direct localStorage removal for simplicity and reliability
-        localStorage.removeItem('timetableEntries');
-        localStorage.removeItem('announcements');
-        localStorage.removeItem('notices');
-        
-        // Also try API endpoints (whichever works first)
-        Promise.all([
-            // Try API endpoints in the background
-            fetch(`${API_BASE_URL}/timetable/clear`, { method: 'DELETE' }).catch(() => {}),
-            fetch(`${API_BASE_URL}/announcements/clear`, { method: 'DELETE' }).catch(() => {}),
-            fetch(`${API_BASE_URL}/notices/clear`, { method: 'DELETE' }).catch(() => {})
-        ])
-        .finally(() => {
-            // Always update UI and reset button regardless of API success
-            loadTimetableEntries();
-            loadAnnouncements();
-            loadNotices();
-            
-            // Single alert
-            alert('All entries have been cleared successfully!');
-            
-            // Reset button
-            clearAllBtn.textContent = originalText;
-            clearAllBtn.disabled = false;
-        });
+        // Clear all data types sequentially to ensure proper error handling
+        clearDataType('timetable')
+            .then(() => clearDataType('announcements'))
+            .then(() => clearDataType('notices'))
+            .then(() => {
+                // Success - only show one alert
+                alert('All entries have been cleared successfully!');
+                
+                // Silently reload all data
+                silentlyReloadAllData();
+            })
+            .catch(error => {
+                console.error('Error clearing entries:', error);
+                alert(`Error: ${error.message}`);
+            })
+            .finally(() => {
+                // Reset button state
+                clearAllBtn.textContent = originalText;
+                clearAllBtn.disabled = false;
+            });
     }
 }
 
-// Attach the clearAllEntries function to the button on page load
+// Helper function to clear a specific data type
+function clearDataType(type) {
+    // Try multiple endpoint patterns
+    let endpoints = [
+        `${API_BASE_URL}/${type}/clear`,  // e.g. /api/timetable/clear
+        `${API_BASE_URL}/${type}/all`,    // e.g. /api/timetable/all
+        `${API_BASE_URL}/${type}`         // e.g. /api/timetable (with DELETE)
+    ];
+    
+    // Try each endpoint until one works
+    return tryEndpoints(endpoints);
+}
+
+// Helper function to try multiple endpoints
+function tryEndpoints(endpoints, index = 0) {
+    if (index >= endpoints.length) {
+        return Promise.reject(new Error('All clear endpoints failed'));
+    }
+    
+    return fetch(endpoints[index], { method: 'DELETE' })
+        .then(response => {
+            if (response.ok) return response.json();
+            // If this endpoint fails, try the next one
+            return tryEndpoints(endpoints, index + 1);
+        })
+        .catch(() => {
+            // If this endpoint fails, try the next one
+            return tryEndpoints(endpoints, index + 1);
+        });
+}
+
+// Silently reload data without alerts
+function silentlyReloadData(type) {
+    if (type === 'timetable') {
+        fetchWithoutAlerts(`${API_BASE_URL}/timetable`, displayTimetableEntries);
+    } else if (type === 'announcement') {
+        fetchWithoutAlerts(`${API_BASE_URL}/announcements`, displayAnnouncements);
+    } else if (type === 'notice') {
+        fetchWithoutAlerts(`${API_BASE_URL}/notices`, displayNotices);
+    }
+}
+
+// Reload all data types silently
+function silentlyReloadAllData() {
+    fetchWithoutAlerts(`${API_BASE_URL}/timetable`, displayTimetableEntries);
+    fetchWithoutAlerts(`${API_BASE_URL}/announcements`, displayAnnouncements);
+    fetchWithoutAlerts(`${API_BASE_URL}/notices`, displayNotices);
+}
+
+// Helper to fetch data without showing alerts on error
+function fetchWithoutAlerts(url, displayFunction) {
+    fetch(url)
+        .then(response => {
+            if (!response.ok) throw new Error(`Error ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            if (typeof displayFunction === 'function') {
+                displayFunction(data);
+            }
+        })
+        .catch(error => {
+            // Just log to console, don't show alerts
+            console.error(`Error fetching ${url}:`, error);
+            
+            // For display functions, pass empty array to show "no data" message
+            if (typeof displayFunction === 'function') {
+                displayFunction([]);
+            }
+        });
+}
+
+// Attach handlers only once
 document.addEventListener('DOMContentLoaded', function() {
+    // Setup Clear All button
     const clearAllBtn = document.getElementById('clear-all');
     if (clearAllBtn) {
-        // Remove any existing event handlers to prevent duplicates
-        const newBtn = clearAllBtn.cloneNode(true);
-        clearAllBtn.parentNode.replaceChild(newBtn, clearAllBtn);
-        
-        // Add the event handler to the new button
-        newBtn.addEventListener('click', clearAllEntries);
-        
-        // Remove inline onclick attribute if exists
-        newBtn.removeAttribute('onclick');
-        
-        console.log('Clear All button initialized successfully');
+        // Remove any existing handlers
+        const newClearBtn = clearAllBtn.cloneNode(true);
+        clearAllBtn.parentNode.replaceChild(newClearBtn, clearAllBtn);
+        newClearBtn.addEventListener('click', clearAllEntries);
+        newClearBtn.removeAttribute('onclick');
     }
+    
+    // Use delegation for delete buttons
+    document.body.addEventListener('click', function(event) {
+        if (event.target.classList.contains('delete-btn')) {
+            const id = event.target.getAttribute('data-id');
+            const type = event.target.getAttribute('data-type') || 'timetable';
+            
+            if (id) {
+                deleteEntry(type, id);
+            }
+        }
+    });
+    
+    // Load data silently
+    silentlyReloadAllData();
 });
 
 // Debug function to verify API endpoints
