@@ -1025,7 +1025,7 @@ function generatePDF() {
       </p>
     `;
     
-    if (!data || data.length ===.0) {
+    if (!data || data.length === 0) {
       const emptyMsg = document.createElement('p');
       emptyMsg.textContent = 'No timetable entries available.';
       emptyMsg.style.textAlign = 'center';
@@ -1034,6 +1034,30 @@ function generatePDF() {
       emptyMsg.style.color = '#666';
       container.appendChild(emptyMsg);
     } else {
+      // Create a consistent color mapping for courses
+      const courseColors = {};
+      const colorOptions = [
+        '#ffebee', '#e3f2fd', '#e8f5e9', '#fff3e0', '#f3e5f5', 
+        '#e0f7fa', '#fff8e1', '#f1f8e9', '#f9fbe7', '#ede7f6'
+      ];
+      const borderColors = [
+        '#ef5350', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc',
+        '#26c6da', '#ffca28', '#9ccc65', '#d4e157', '#7e57c2'
+      ];
+      
+      let colorIndex = 0;
+      
+      // Generate a color for each unique course
+      data.forEach(entry => {
+        if (entry.course && !courseColors[entry.course]) {
+          courseColors[entry.course] = {
+            background: colorOptions[colorIndex % colorOptions.length],
+            border: borderColors[colorIndex % borderColors.length]
+          };
+          colorIndex++;
+        }
+      });
+      
       // Group entries by week
       const weekGroups = {};
       data.forEach(entry => {
@@ -1162,7 +1186,6 @@ function generatePDF() {
             dayCell.style.border = '1px solid #ddd';
             dayCell.style.verticalAlign = 'top';
             dayCell.style.height = '60px';
-            dayCell.style.textAlign = 'center';
             
             // Find entries for this day and time slot
             const entries = weekEntries.filter(entry => {
@@ -1179,27 +1202,50 @@ function generatePDF() {
             
             // If entries found, add them to the cell
             if (entries.length > 0) {
-              entries.forEach(entry => {
-                // Create a simple centered cell content without a box
-                const courseDiv = document.createElement('div');
-                courseDiv.style.marginBottom = '5px';
-                courseDiv.style.fontWeight = 'bold';
-                courseDiv.textContent = entry.course || '';
-                dayCell.appendChild(courseDiv);
+              // Add some spacing between multiple entries
+              dayCell.style.padding = '5px';
+              
+              entries.forEach((entry, entryIndex) => {
+                // Get color for this course or use a default
+                const colorSet = entry.course && courseColors[entry.course] ? 
+                  courseColors[entry.course] : {
+                    background: colorOptions[entryIndex % colorOptions.length],
+                    border: borderColors[entryIndex % borderColors.length]
+                  };
                 
+                // Create a container for this entry with colored styling
+                const entryContainer = document.createElement('div');
+                entryContainer.style.backgroundColor = colorSet.background;
+                entryContainer.style.borderLeft = `4px solid ${colorSet.border}`;
+                entryContainer.style.padding = '8px';
+                entryContainer.style.marginBottom = entryIndex < entries.length - 1 ? '8px' : '0';
+                entryContainer.style.borderRadius = '3px';
+                entryContainer.style.textAlign = 'center';
+                
+                // Course name (bold)
+                const courseDiv = document.createElement('div');
+                courseDiv.style.fontWeight = 'bold';
+                courseDiv.style.marginBottom = '3px';
+                courseDiv.textContent = entry.course || '';
+                entryContainer.appendChild(courseDiv);
+                
+                // Teacher name (if available)
                 if (entry.teacher) {
                   const teacherDiv = document.createElement('div');
                   teacherDiv.style.fontSize = '12px';
                   teacherDiv.textContent = entry.teacher;
-                  dayCell.appendChild(teacherDiv);
+                  entryContainer.appendChild(teacherDiv);
                 }
                 
+                // Venue/room (if available)
                 if (entry.venue) {
                   const venueDiv = document.createElement('div');
                   venueDiv.style.fontSize = '12px';
                   venueDiv.textContent = entry.venue;
-                  dayCell.appendChild(venueDiv);
+                  entryContainer.appendChild(venueDiv);
                 }
+                
+                dayCell.appendChild(entryContainer);
               });
             }
             
