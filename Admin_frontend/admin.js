@@ -1292,12 +1292,6 @@ function debugFormElements() {
     console.log(`${el.tagName} id="${el.id}" name="${el.name}"`);
   });
 }
-
-// Add to initialization
-document.addEventListener('DOMContentLoaded', function() {
-  debugFormElements();
-  initializeAdminPanel();
-});
 // ======================================================
 // INITIALIZATION
 // ======================================================
