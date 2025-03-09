@@ -96,9 +96,20 @@ function updateWeekLabel() { /* your implementation */
     }
     
     if (weekInput) {
+        // Check if the value actually changed
+        const oldValue = weekInput.value;
         weekInput.value = weekValue;
-    } else {
-        console.error('Week input not found');
+        
+        // If week changed, reload the timetable entries for this week
+        if (oldValue !== weekValue) {
+            console.log(`Week changed from ${oldValue} to ${weekValue}, reloading data`);
+            
+            // Short delay to ensure UI updates first
+            setTimeout(() => {
+                // Get data filtered for this week only
+                loadTimetableEntries(false);
+            }, 100);
+        }
     }
     
     console.log('Week updated to:', weekValue);
@@ -108,6 +119,7 @@ function updateWeekLabel() { /* your implementation */
 // ======================================================
 // DATA MANAGEMENT FUNCTIONS
 // ======================================================
+
 function storeUniqueCourse(courseName) { /* your implementation */ 
   if (!courseName) return;
   
@@ -176,6 +188,7 @@ function loadSavedValues() { /* your implementation */
 // ======================================================
 // API FUNCTIONS
 // ======================================================
+
 function loadAllData() { /* SINGLE implementation */
   console.log('Loading all data from API with cache busting...');
     const cacheBuster = Date.now();
@@ -190,26 +203,40 @@ function loadAllData() { /* SINGLE implementation */
  }
 function loadTimetableEntries(showAlerts = true) { /* SINGLE implementation */ 
   console.log('Loading timetable entries from API...');
-    fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log(`Loaded ${data.length} timetable entries`);
-        displayTimetableEntries(data);
-    })
-    .catch(error => {
-        console.error('Error loading timetable entries:', error);
-        displayTimetableEntries([]);
-        if (showAlerts) {
-            alert('Failed to load timetable entries. See console for details.');
-        }
-    });
+  
+  // Get the current week filter value if available
+  const weekFilter = document.getElementById('week') ? 
+    document.getElementById('week').value : null;
+  
+  fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
+    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log(`Loaded ${data.length} timetable entries`);
+    
+    // If we have a week filter, apply it
+    if (weekFilter) {
+      console.log(`Filtering entries for week: ${weekFilter}`);
+      const filteredData = data.filter(entry => entry.week === weekFilter);
+      console.log(`Found ${filteredData.length} entries for ${weekFilter}`);
+      displayTimetableEntries(filteredData);
+    } else {
+      displayTimetableEntries(data);
+    }
+  })
+  .catch(error => {
+    console.error('Error loading timetable entries:', error);
+    if (showAlerts) {
+      alert('Failed to load timetable entries. See console for details.');
+    }
+    // Don't clear the display on error to prevent flashing
+  });
 }
 function loadAnnouncements(showAlerts = true) { /* SINGLE implementation */ 
   console.log('Loading announcements from API...');
@@ -261,43 +288,61 @@ function loadNotices(showAlerts = true) { /* SINGLE implementation */
 // ======================================================
 // DISPLAY FUNCTIONS
 // ======================================================
+
 function displayTimetableEntries(entries) { /* SINGLE implementation */ 
   const tbody = document.querySelector('#admin-timetable tbody');
-    
-    if (!tbody) {
-        console.error('Timetable tbody not found');
-        return;
-    }
-    
-    tbody.innerHTML = '';
-    
-    if (!entries || entries.length === 0) {
-        const row = document.createElement('tr');
-        const cell = document.createElement('td');
-        cell.colSpan = 7;
-        cell.textContent = 'No timetable entries available';
-        cell.style.textAlign = 'center';
-        cell.style.padding = '20px';
-        row.appendChild(cell);
-        tbody.appendChild(row);
-        return;
-    }
-    
-    entries.forEach(entry => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${entry.week || ''}</td>
-            <td>${entry.course || ''}</td>
-            <td>${entry.days ? (typeof entry.days === 'string' ? entry.days : entry.days.join(', ')) : ''}</td>
-            <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
-            <td>${entry.teacher || ''}</td>
-            <td>${entry.venue || ''}</td>
-            <td>
-                <button class="delete-btn" data-type="timetable" data-id="${entry.id}">Delete</button>
-            </td>
-        `;
-        tbody.appendChild(row);
+  
+  if (!tbody) {
+    console.error('Timetable tbody not found');
+    return;
+  }
+  
+  // Get the current week filter
+  const weekFilter = document.getElementById('week') ? 
+    document.getElementById('week').value : null;
+  
+  // Only filter if we have both a filter and entries
+  let displayEntries = entries;
+  if (weekFilter && entries && entries.length > 0) {
+    // Make a defensive copy to avoid modifying the original data
+    displayEntries = [...entries].filter(entry => entry.week === weekFilter);
+    console.log(`Displaying ${displayEntries.length} entries for ${weekFilter} (filtered from ${entries.length} total)`);
+  }
+  
+  // Keep the previous content until we have new content ready
+  const newTbody = document.createElement('tbody');
+  
+  if (!displayEntries || displayEntries.length === 0) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    cell.textContent = weekFilter ? 
+      `No timetable entries available for ${weekFilter}` : 
+      'No timetable entries available';
+    cell.style.textAlign = 'center';
+    cell.style.padding = '20px';
+    row.appendChild(cell);
+    newTbody.appendChild(row);
+  } else {
+    displayEntries.forEach(entry => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${entry.week || ''}</td>
+        <td>${entry.course || ''}</td>
+        <td>${entry.days ? (typeof entry.days === 'string' ? entry.days : entry.days.join(', ')) : ''}</td>
+        <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
+        <td>${entry.teacher || ''}</td>
+        <td>${entry.venue || ''}</td>
+        <td>
+          <button class="delete-btn" data-type="timetable" data-id="${entry.id}">Delete</button>
+        </td>
+      `;
+      newTbody.appendChild(row);
     });
+  }
+  
+  // Replace the tbody with the new content
+  tbody.parentNode.replaceChild(newTbody, tbody);
 }
 function displayAnnouncements(announcements) { /* SINGLE implementation */ 
   const container = document.getElementById('admin-announcements');
@@ -356,6 +401,7 @@ function displayNotices(notices) { /* SINGLE implementation */
 // ======================================================
 // DELETE/MODIFY FUNCTIONS
 // ======================================================
+
 function deleteEntry(type, id, event) { /* SINGLE implementation */
   const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
     if (!id) {
@@ -801,14 +847,40 @@ function forceDeleteAllItemsIndividually() {
 // PDF GENERATION FUNCTIONS
 // ======================================================
 
-function generatePDF() { /* your implementation */
+function generatePDF() {
   console.log('Generating PDF...');
+  
+  // First, check if the library is loaded
+  if (typeof html2pdf === 'undefined') {
+    console.error('html2pdf library not found');
+    alert('PDF generation library not loaded. Adding library now...');
+    
+    // Dynamically add the libraries
+    const jspdfScript = document.createElement('script');
+    jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    document.head.appendChild(jspdfScript);
+    
+    const html2canvasScript = document.createElement('script');
+    html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(html2canvasScript);
+    
+    const html2pdfScript = document.createElement('script');
+    html2pdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    html2pdfScript.onload = function() {
+      // Retry PDF generation once the library is loaded
+      setTimeout(() => generatePDF(), 500);
+    };
+    document.head.appendChild(html2pdfScript);
+    return;
+  }
   
   const container = document.createElement('div');
   container.className = 'pdf-container';
   container.style.width = '210mm'; // A4 width
   container.style.padding = '10mm';
   container.style.backgroundColor = 'white';
+  container.style.visibility = 'hidden';
+  container.style.position = 'absolute';
   
   // Add title
   const title = document.createElement('h1');
@@ -816,6 +888,13 @@ function generatePDF() { /* your implementation */
   title.style.textAlign = 'center';
   title.style.marginBottom = '20px';
   container.appendChild(title);
+  
+  // Add current date and time
+  const dateInfo = document.createElement('p');
+  dateInfo.textContent = `Generated on: ${new Date().toLocaleString()}`;
+  dateInfo.style.textAlign = 'center';
+  dateInfo.style.marginBottom = '20px';
+  container.appendChild(dateInfo);
   
   // Fetch timetable data for PDF
   fetch(`${API_BASE_URL}/timetable`)
@@ -905,7 +984,28 @@ function generatePDF() { /* your implementation */
         container.appendChild(table);
       });
       
-      finalizePDF(container);
+      // Add the container to the document to ensure styles are applied
+      document.body.appendChild(container);
+      
+      // Use html2pdf with proper options
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     'university_timetable.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      html2pdf().from(container).set(opt).save()
+        .then(() => {
+          document.body.removeChild(container);
+          console.log("PDF generated successfully");
+        })
+        .catch(error => {
+          console.error("Error generating PDF:", error);
+          alert("Error generating PDF: " + error.message);
+          document.body.removeChild(container);
+        });
     })
     .catch(error => {
       console.error('Error fetching data for PDF:', error);
@@ -913,7 +1013,7 @@ function generatePDF() { /* your implementation */
       errorMsg.textContent = 'Error generating PDF. Please try again.';
       errorMsg.style.color = 'red';
       container.appendChild(errorMsg);
-      finalizePDF(container);
+      document.body.removeChild(container);
     });
 }
 function finalizePDF(container) { /* your implementation */ 
@@ -962,6 +1062,7 @@ return `${formatSingleTime(times[0])} - ${formatSingleTime(times[1])}`;
 // ======================================================
 // SETUP FUNCTIONS
 // ======================================================
+
 function setupUserInfo() { /* your implementation */ 
   console.log('Setting up user info...');
   
@@ -1489,9 +1590,237 @@ function debugFormElements() {
     console.log(`${el.tagName} id="${el.id}" name="${el.name}"`);
   });
 }
+
+// ======================================================
+// MANAGE STORED DATA
+// ======================================================
+
+function manageSavedData() {
+  console.log('Managing saved data...');
+  
+  // Get saved data from localStorage
+  const uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
+  const uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
+  const uniqueVenues = JSON.parse(localStorage.getItem('uniqueVenues')) || [];
+  
+  // Create modal container
+  const modalContainer = document.createElement('div');
+  modalContainer.className = 'modal-container';
+  modalContainer.style.position = 'fixed';
+  modalContainer.style.top = '0';
+  modalContainer.style.left = '0';
+  modalContainer.style.width = '100%';
+  modalContainer.style.height = '100%';
+  modalContainer.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  modalContainer.style.zIndex = '1000';
+  modalContainer.style.display = 'flex';
+  modalContainer.style.justifyContent = 'center';
+  modalContainer.style.alignItems = 'center';
+  
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.width = '80%';
+  modal.style.maxWidth = '800px';
+  modal.style.maxHeight = '80vh';
+  modal.style.backgroundColor = 'white';
+  modal.style.borderRadius = '8px';
+  modal.style.padding = '20px';
+  modal.style.overflowY = 'auto';
+  
+  // Add title and close button
+  const header = document.createElement('div');
+  header.style.display = 'flex';
+  header.style.justifyContent = 'space-between';
+  header.style.marginBottom = '20px';
+  
+  const title = document.createElement('h2');
+  title.textContent = 'Manage Saved Data';
+  
+  const closeButton = document.createElement('button');
+  closeButton.textContent = '×';
+  closeButton.style.background = 'none';
+  closeButton.style.border = 'none';
+  closeButton.style.fontSize = '24px';
+  closeButton.style.cursor = 'pointer';
+  closeButton.onclick = function() {
+    document.body.removeChild(modalContainer);
+  };
+  
+  header.appendChild(title);
+  header.appendChild(closeButton);
+  modal.appendChild(header);
+  
+  // Helper function to create data section
+  function createDataSection(title, data, storageKey) {
+    const section = document.createElement('div');
+    section.style.marginBottom = '30px';
+    
+    const sectionTitle = document.createElement('h3');
+    sectionTitle.textContent = title;
+    section.appendChild(sectionTitle);
+    
+    // Add form for adding new items
+    const addForm = document.createElement('div');
+    addForm.style.marginBottom = '15px';
+    addForm.style.display = 'flex';
+    addForm.style.gap = '10px';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = `Add new ${title.toLowerCase()}...`;
+    input.style.flex = '1';
+    input.style.padding = '8px';
+    
+    const addButton = document.createElement('button');
+    addButton.textContent = 'Add';
+    addButton.style.padding = '8px 15px';
+    addButton.style.backgroundColor = '#4CAF50';
+    addButton.style.color = 'white';
+    addButton.style.border = 'none';
+    addButton.style.borderRadius = '4px';
+    addButton.style.cursor = 'pointer';
+    
+    addButton.onclick = function() {
+      if (input.value.trim()) {
+        // Add new item if it doesn't exist
+        if (!data.includes(input.value.trim())) {
+          data.push(input.value.trim());
+          localStorage.setItem(storageKey, JSON.stringify(data));
+          refreshDataDisplay();
+        }
+        input.value = '';
+      }
+    };
+    
+    addForm.appendChild(input);
+    addForm.appendChild(addButton);
+    section.appendChild(addForm);
+    
+    // Display existing data
+    const dataList = document.createElement('div');
+    dataList.className = 'data-list';
+    dataList.style.display = 'flex';
+    dataList.style.flexWrap = 'wrap';
+    dataList.style.gap = '10px';
+    
+    function refreshDataDisplay() {
+      dataList.innerHTML = '';
+      
+      if (data.length === 0) {
+        const emptyMsg = document.createElement('p');
+        emptyMsg.textContent = `No ${title.toLowerCase()} saved yet.`;
+        emptyMsg.style.fontStyle = 'italic';
+        emptyMsg.style.color = '#888';
+        dataList.appendChild(emptyMsg);
+      } else {
+        data.forEach((item, index) => {
+          const itemEl = document.createElement('div');
+          itemEl.style.display = 'flex';
+          itemEl.style.alignItems = 'center';
+          itemEl.style.backgroundColor = '#f1f1f1';
+          itemEl.style.padding = '5px 10px';
+          itemEl.style.borderRadius = '4px';
+          
+          const itemText = document.createElement('span');
+          itemText.textContent = item;
+          itemText.style.marginRight = '10px';
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = '×';
+          deleteBtn.style.background = 'none';
+          deleteBtn.style.border = 'none';
+          deleteBtn.style.cursor = 'pointer';
+          deleteBtn.style.color = '#ff5555';
+          deleteBtn.style.fontSize = '18px';
+          deleteBtn.onclick = function() {
+            data.splice(index, 1);
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            refreshDataDisplay();
+            
+            // Also update form datalists
+            loadSavedValues();
+          };
+          
+          itemEl.appendChild(itemText);
+          itemEl.appendChild(deleteBtn);
+          dataList.appendChild(itemEl);
+        });
+      }
+    }
+    
+    refreshDataDisplay();
+    section.appendChild(dataList);
+    
+    // Add export/import buttons
+    const actionButtons = document.createElement('div');
+    actionButtons.style.marginTop = '15px';
+    actionButtons.style.display = 'flex';
+    actionButtons.style.gap = '10px';
+    
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = `Export ${title}`;
+    exportBtn.style.padding = '5px 10px';
+    exportBtn.onclick = function() {
+      const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${storageKey}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    
+    actionButtons.appendChild(exportBtn);
+    
+    // Clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = `Clear ${title}`;
+    clearBtn.style.padding = '5px 10px';
+    clearBtn.style.marginLeft = 'auto';
+    clearBtn.style.backgroundColor = '#ff5555';
+    clearBtn.style.color = 'white';
+    clearBtn.style.border = 'none';
+    clearBtn.style.borderRadius = '4px';
+    clearBtn.style.cursor = 'pointer';
+    
+    clearBtn.onclick = function() {
+      if (confirm(`Are you sure you want to clear all ${title.toLowerCase()}?`)) {
+        data.length = 0;
+        localStorage.setItem(storageKey, JSON.stringify(data));
+        refreshDataDisplay();
+        
+        // Also update form datalists
+        loadSavedValues();
+      }
+    };
+    
+    actionButtons.appendChild(clearBtn);
+    section.appendChild(actionButtons);
+    
+    return section;
+  }
+  
+  // Create sections for each data type
+  modal.appendChild(createDataSection('Courses', uniqueCourses, 'uniqueCourses'));
+  modal.appendChild(createDataSection('Teachers', uniqueTeachers, 'uniqueTeachers'));
+  modal.appendChild(createDataSection('Venues', uniqueVenues, 'uniqueVenues'));
+  
+  // Add to DOM
+  modalContainer.appendChild(modal);
+  document.body.appendChild(modalContainer);
+  
+  // Close when clicking outside
+  modalContainer.addEventListener('click', function(e) {
+    if (e.target === modalContainer) {
+      document.body.removeChild(modalContainer);
+    }
+  });
+}
 // ======================================================
 // INITIALIZATION
 // ======================================================
+
 function initializeAdminPanel() {
   console.log('Initializing admin panel...');
   
@@ -1524,3 +1853,4 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM ready, initializing admin panel...');
   initializeAdminPanel();
 });
+
