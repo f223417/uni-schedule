@@ -1066,6 +1066,20 @@ function submitTimetableEntry() {
     
     // Force index page to reload
     localStorage.setItem('forceDataReload', Date.now().toString());
+    localStorage.setItem('timetableUpdated', Date.now().toString());
+    
+    // Use BroadcastChannel to notify other tabs/windows
+    try {
+      const bc = new BroadcastChannel('uni_schedule_updates');
+      bc.postMessage({ 
+        type: 'data-updated', 
+        dataType: 'timetable',
+        timestamp: Date.now()
+      });
+      bc.close();
+    } catch(e) {
+      console.log('BroadcastChannel not supported');
+    }
   })
   .catch(error => {
     console.error('Error adding timetable entry:', error);
@@ -1078,13 +1092,13 @@ function submitTimetableEntry() {
     }
   });
 }
-// Fix submitAnnouncement function
+// Complete implementation of submitAnnouncement function
 function submitAnnouncement() {
   console.log('Submitting announcement...');
   
   // Get form elements with corrected IDs
-  const announcementInput = document.getElementById('announcement'); // Changed from announcement-text
-  const durationInput = document.getElementById('duration'); // Changed from expiry-date
+  const announcementInput = document.getElementById('announcement');
+  const durationInput = document.getElementById('duration');
   const submitBtn = document.querySelector('#announcement-form button[type="submit"]');
   
   // Debug which elements weren't found
@@ -1125,8 +1139,62 @@ function submitAnnouncement() {
     expiryDate: expiryDate.toISOString()
   };
   
-  // Rest of your function remains the same
-  // ...
+  console.log('Submitting announcement:', announcementObj);
+  
+  // Send to API
+  fetch(`${API_BASE_URL}/announcements`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(announcementObj)
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.text().then(text => {
+        throw new Error(`Server error: ${text || response.status}`);
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('Announcement added successfully:', data);
+    alert('Announcement added successfully!');
+    
+    // Clear form
+    announcementInput.value = '';
+    durationInput.value = '';
+    
+    // Reload announcements
+    loadAnnouncements();
+    
+    // Force index page to reload
+    localStorage.setItem('forceDataReload', Date.now().toString());
+    localStorage.setItem('announcementsUpdated', Date.now().toString());
+    
+    // Use BroadcastChannel to notify other tabs/windows
+    try {
+      const bc = new BroadcastChannel('uni_schedule_updates');
+      bc.postMessage({ 
+        type: 'data-updated', 
+        dataType: 'announcements',
+        timestamp: Date.now()
+      });
+      bc.close();
+    } catch(e) {
+      console.log('BroadcastChannel not supported');
+    }
+  })
+  .catch(error => {
+    console.error('Error adding announcement:', error);
+    alert(`Failed to add announcement: ${error.message}`);
+  })
+  .finally(() => {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add Announcement';
+    }
+  });
 }
 function submitNotice() {
   console.log('Submitting notice...');

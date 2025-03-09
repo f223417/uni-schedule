@@ -426,6 +426,76 @@
             // Update the UI from localStorage
             updateAllData();
         }
+
+        // Function to load data from API
+        function loadDataFromAPI() {
+            console.log('Loading data from API for display...');
+            
+            // Load timetable data
+            fetch('/api/timetable')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} timetable entries from API`);
+                    // Store in localStorage for offline access
+                    localStorage.setItem('timetableEntries', JSON.stringify(data));
+                    // Update the display
+                    updateTimetable();
+                })
+                .catch(error => console.error('Error loading timetable data:', error));
+            
+            // Load announcements
+            fetch('/api/announcements')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} announcements from API`);
+                    localStorage.setItem('announcements', JSON.stringify(data));
+                    updateAnnouncements();
+                })
+                .catch(error => console.error('Error loading announcements:', error));
+            
+            // Load notices
+            fetch('/api/notices')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} notices from API`);
+                    localStorage.setItem('notices', JSON.stringify(data));
+                    updateNotices();
+                })
+                .catch(error => console.error('Error loading notices:', error));
+        }
+
+        // Add this to your DOMContentLoaded event in index.html
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial data load
+            loadDataFromAPI();
+            
+            // Listen for updates from admin panel
+            window.addEventListener('storage', function(event) {
+                if (event.key === 'forceDataReload' || 
+                    event.key === 'timetableUpdated' || 
+                    event.key === 'announcementsUpdated' || 
+                    event.key === 'noticesUpdated') {
+                    console.log('Storage event detected, reloading data');
+                    loadDataFromAPI();
+                }
+            });
+            
+            // Set up BroadcastChannel for cross-tab communication
+            try {
+                const bc = new BroadcastChannel('uni_schedule_updates');
+                bc.onmessage = (event) => {
+                    console.log('Received broadcast message:', event.data);
+                    if (event.data.type === 'data-updated') {
+                        loadDataFromAPI();
+                    }
+                };
+            } catch(e) {
+                console.log('BroadcastChannel not supported');
+            }
+            
+            // Periodic refresh
+            setInterval(loadDataFromAPI, 30000); // Every 30 seconds
+        });
     </script>
     <script src="index.js"></script>
 </body>
