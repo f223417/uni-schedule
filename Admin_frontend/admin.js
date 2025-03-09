@@ -1680,48 +1680,72 @@ function loadAllData() {
 }
 
 // Function to load timetable entries
-function loadTimetableEntries() {
-    fetch(`${API_BASE_URL}/timetable`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('Timetable entries loaded:', data);
-            timetableEntries = data;
-            displayTimetableEntries(data);
-        })
-        .catch(error => {
-            console.error('Error loading timetable entries:', error);
-            alert('Failed to load timetable entries. See console for details.');
-        });
+function loadTimetableEntries(showAlerts = true) {
+  console.log('Loading timetable entries from API...');
+  fetch(`${API_BASE_URL}/timetable`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`Loaded ${data.length} timetable entries`);
+      displayTimetableEntries(data);
+    })
+    .catch(error => {
+      console.error('Error loading timetable entries:', error);
+      displayTimetableEntries([]);
+      if (showAlerts) {
+        alert('Failed to load timetable entries. See console for details.');
+      }
+    });
 }
 
 // Function to load announcements
-function loadAnnouncements() {
-    fetch(`${API_BASE_URL}/announcements`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('Announcements loaded:', data);
-            announcements = data;
-            displayAnnouncements(data);
-        })
-        .catch(error => {
-            console.error('Error loading announcements:', error);
-            alert('Failed to load announcements. See console for details.');
-        });
+function loadAnnouncements(showAlerts = true) {
+  console.log('Loading announcements from API...');
+  fetch(`${API_BASE_URL}/announcements`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`Loaded ${data.length} announcements`);
+      displayAnnouncements(data);
+    })
+    .catch(error => {
+      console.error('Error loading announcements:', error);
+      displayAnnouncements([]);
+      if (showAlerts) {
+        alert('Failed to load announcements. See console for details.');
+      }
+    });
 }
 
 // Function to load notices
-function loadNotices() {
-    fetch(`${API_BASE_URL}/notices`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('Notices loaded:', data);
-            notices = data;
-            displayNotices(data);
-        })
-        .catch(error => {
-            console.error('Error loading notices:', error);
-            alert('Failed to load notices. See console for details.');
-        });
+function loadNotices(showAlerts = true) {
+  console.log('Loading notices from API...');
+  fetch(`${API_BASE_URL}/notices`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`Loaded ${data.length} notices`);
+      displayNotices(data);
+    })
+    .catch(error => {
+      console.error('Error loading notices:', error);
+      displayNotices([]);
+      if (showAlerts) {
+        alert('Failed to load notices. See console for details.');
+      }
+    });
 }
 
 // Function to display timetable entries
@@ -2065,45 +2089,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Consolidated delete function for all entry types
 function deleteEntry(type, id, event) {
-  // Get the button element
   const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
-  
-  // Only proceed if we have a button and ID
   if (!id || !button) {
     console.error('Missing ID or button element for delete operation');
     return;
   }
-  
-  // Set appropriate item type name for confirmation
+
   const itemTypes = {
     'timetable': 'entry',
     'announcement': 'announcement',
     'notice': 'notice'
   };
   const itemName = itemTypes[type] || 'item';
-  
+
   if (confirm(`Are you sure you want to delete this ${itemName}?`)) {
-    // Show loading state on button
     const originalText = button.textContent;
     button.textContent = 'Deleting...';
     button.disabled = true;
-    
-    // Build the correct endpoint based on type
-    let endpoint = '';
-    if (type === 'timetable') {
-      endpoint = `${API_BASE_URL}/timetable/${id}`;
-    } else if (type === 'announcement') {
-      endpoint = `${API_BASE_URL}/announcements/${id}`;
-    } else if (type === 'notice') {
-      endpoint = `${API_BASE_URL}/notices/${id}`;
-    }
-    
-    console.log(`Attempting to delete ${type} with ID ${id} at endpoint: ${endpoint}`);
-    
-    // Make delete request
+
+    let endpoint = `${API_BASE_URL}/${type}/${id}`;
+
     fetch(endpoint, { method: 'DELETE' })
       .then(response => {
-        // Check if response is successful
         if (!response.ok) {
           return response.text().then(text => {
             throw new Error(`Server error (${response.status}): ${text || 'No error message'}`);
@@ -2113,12 +2120,10 @@ function deleteEntry(type, id, event) {
       })
       .then(data => {
         console.log(`Successfully deleted ${itemName}:`, data);
-        
-        // Reload the appropriate data without showing alerts
         if (type === 'timetable') {
-          loadTimetableEntries(false); // Pass false to prevent alerts
+          loadTimetableEntries(false);
         } else if (type === 'announcement') {
-          loadAnnouncements(false); 
+          loadAnnouncements(false);
         } else if (type === 'notice') {
           loadNotices(false);
         }
@@ -2128,7 +2133,6 @@ function deleteEntry(type, id, event) {
         alert(`Failed to delete ${itemName}. ${error.message}`);
       })
       .finally(() => {
-        // Reset button state
         button.textContent = originalText;
         button.disabled = false;
       });
@@ -2138,68 +2142,44 @@ function deleteEntry(type, id, event) {
 // Clear all entries function that properly handles API communication
 function clearAllEntries(event) {
   if (confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
-    // Get button reference and update its state
     const button = event ? event.target : document.getElementById('clear-all');
     let originalText = button ? button.textContent : '';
-    
+
     if (button) {
       button.textContent = 'Clearing...';
       button.disabled = true;
     }
-    
+
     console.log('Clearing all entries via API...');
-    
-    // Sequential API calls with fallbacks for different endpoint patterns
-    fetch(`${API_BASE_URL}/timetable/clear`, { method: 'DELETE' })
-      .catch(() => {
-        console.log('Trying alternative timetable clear endpoint...');
-        return fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' });
-      })
-      .catch(() => {
-        console.log('Trying base timetable endpoint for delete...');
-        return fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' });
-      })
-      .then(() => {
-        console.log('Timetable cleared, now clearing announcements...');
-        return fetch(`${API_BASE_URL}/announcements/clear`, { method: 'DELETE' });
-      })
-      .catch(() => fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' }))
-      .catch(() => fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' }))
-      .then(() => {
-        console.log('Announcements cleared, now clearing notices...');
-        return fetch(`${API_BASE_URL}/notices/clear`, { method: 'DELETE' });
-      })
-      .catch(() => fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' }))
-      .catch(() => fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' }))
-      .then(() => {
-        console.log('All entries cleared successfully');
-        
-        // Load all data without showing alerts for empty results
-        loadTimetableEntries(false);
-        loadAnnouncements(false);
-        loadNotices(false);
-        
-        // Show success message
-        alert('All entries cleared successfully!');
-      })
-      .catch(error => {
-        console.error('Error clearing entries:', error);
-        alert('Error clearing entries. Please try again.');
-      })
-      .finally(() => {
-        // Reset button state
-        if (button) {
-          button.textContent = originalText;
-          button.disabled = false;
-        }
-      });
+
+    Promise.all([
+      fetch(`${API_BASE_URL}/timetable/clear`, { method: 'DELETE' }).catch(() => fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' })).catch(() => fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' })),
+      fetch(`${API_BASE_URL}/announcements/clear`, { method: 'DELETE' }).catch(() => fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' })).catch(() => fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' })),
+      fetch(`${API_BASE_URL}/notices/clear`, { method: 'DELETE' }).catch(() => fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' })).catch(() => fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' }))
+    ])
+    .then(() => {
+      console.log('All entries cleared successfully');
+      loadTimetableEntries(false);
+      loadAnnouncements(false);
+      loadNotices(false);
+      alert('All entries cleared successfully!');
+    })
+    .catch(error => {
+      console.error('Error clearing entries:', error);
+      alert('Error clearing entries. Please try again.');
+    })
+    .finally(() => {
+      if (button) {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    });
   }
 }
 
 // Modified data loading functions to avoid unnecessary alerts
 function loadTimetableEntries(showAlerts = true) {
   console.log('Loading timetable entries from API...');
-  
   fetch(`${API_BASE_URL}/timetable`)
     .then(response => {
       if (!response.ok) {
@@ -2213,8 +2193,7 @@ function loadTimetableEntries(showAlerts = true) {
     })
     .catch(error => {
       console.error('Error loading timetable entries:', error);
-      displayTimetableEntries([]); // Display empty state
-      
+      displayTimetableEntries([]);
       if (showAlerts) {
         alert('Failed to load timetable entries. See console for details.');
       }
@@ -2223,7 +2202,6 @@ function loadTimetableEntries(showAlerts = true) {
 
 function loadAnnouncements(showAlerts = true) {
   console.log('Loading announcements from API...');
-  
   fetch(`${API_BASE_URL}/announcements`)
     .then(response => {
       if (!response.ok) {
@@ -2238,7 +2216,6 @@ function loadAnnouncements(showAlerts = true) {
     .catch(error => {
       console.error('Error loading announcements:', error);
       displayAnnouncements([]);
-      
       if (showAlerts) {
         alert('Failed to load announcements. See console for details.');
       }
@@ -2247,7 +2224,6 @@ function loadAnnouncements(showAlerts = true) {
 
 function loadNotices(showAlerts = true) {
   console.log('Loading notices from API...');
-  
   fetch(`${API_BASE_URL}/notices`)
     .then(response => {
       if (!response.ok) {
@@ -2262,7 +2238,6 @@ function loadNotices(showAlerts = true) {
     .catch(error => {
       console.error('Error loading notices:', error);
       displayNotices([]);
-      
       if (showAlerts) {
         alert('Failed to load notices. See console for details.');
       }
