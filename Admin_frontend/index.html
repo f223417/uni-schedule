@@ -86,6 +86,8 @@
         function updateTimetable() {
             console.log('Updating timetable for week', viewingWeek);
             const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
+            console.log('Total entries loaded:', timetableEntries.length); // Debug log
+            
             const table = document.getElementById('timetable-entries');
             if (!table) {
                 console.error('Timetable element not found!');
@@ -93,32 +95,44 @@
             }
             table.innerHTML = ''; // Clear existing entries
             
-            // Filter entries for the current viewing week
-            const currentWeekEntries = timetableEntries.filter(entry => 
-                entry.week.includes(viewingWeek.toString()) || entry.week === `Week ${viewingWeek}`
-            );
+            // Filter entries for the current viewing week with better error handling
+            const currentWeekEntries = timetableEntries.filter(entry => {
+                // Make sure we have a week property that's a string
+                const entryWeek = entry.week ? entry.week.toString() : '';
+                const targetWeek = `Week ${viewingWeek}`;
+                
+                // More robust comparison
+                return entryWeek.includes(viewingWeek.toString()) || 
+                       entryWeek === targetWeek || 
+                       entryWeek === viewingWeek.toString();
+            });
+            
+            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries.length); // Debug log
             
             // Determine which days have entries for this week
             const activeDays = new Set();
             currentWeekEntries.forEach(entry => {
-                if (entry.days && Array.isArray(entry.days)) {
-                    entry.days.forEach(day => activeDays.add(day));
+                // Handle both array and string days
+                if (entry.days) {
+                    if (Array.isArray(entry.days)) {
+                        entry.days.forEach(day => activeDays.add(day));
+                    } else if (typeof entry.days === 'string') {
+                        activeDays.add(entry.days);
+                    }
                 } else if (entry.day) {
                     activeDays.add(entry.day);
                 }
             });
             
-            // Define the default weekdays to always show (Mon-Fri)
+            console.log('Active days detected:', Array.from(activeDays)); // Debug log
+            
+            // Always show Monday-Friday
             const defaultWeekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-            
-            // Check if weekend days have entries
-            const showSaturday = activeDays.has("Saturday");
-            const showSunday = activeDays.has("Sunday");
-            
-            // Create list of days to display
             const daysToDisplay = [...defaultWeekdays];
-            if (showSaturday) daysToDisplay.push("Saturday");
-            if (showSunday) daysToDisplay.push("Sunday");
+            
+            // Add weekend days if they have entries
+            if (activeDays.has("Saturday")) daysToDisplay.push("Saturday");
+            if (activeDays.has("Sunday")) daysToDisplay.push("Sunday");
             
             // Create header row
             const headerRow = document.createElement('tr');
@@ -128,7 +142,7 @@
             timeHeader.textContent = "Time";
             headerRow.appendChild(timeHeader);
             
-            // Always add Monday-Friday, and conditionally add weekend days
+            // Add day headers
             daysToDisplay.forEach(day => {
                 const th = document.createElement('th');
                 th.textContent = day;
@@ -137,12 +151,13 @@
             
             table.appendChild(headerRow);
             
-            // If no time slots defined, use default ones
-            let timeSlotList = timeSlots;
-            
-            // Get unique time slots from entries if they exist
+            // Get unique time slots from entries
             const customTimeSlots = [];
             currentWeekEntries.forEach(entry => {
+                // Skip entries without time information
+                if (!entry.startTime || !entry.endTime) return;
+                
+                // Add time slot if not already in the list
                 if (!customTimeSlots.some(slot => slot.start === entry.startTime && slot.end === entry.endTime)) {
                     customTimeSlots.push({
                         start: entry.startTime,
@@ -152,17 +167,24 @@
                 }
             });
             
-            // Sort custom time slots by start time if they exist
-            if (customTimeSlots.length > 0) {
-                customTimeSlots.sort((a, b) => a.start.localeCompare(b.start));
-            }
+            console.log('Custom time slots:', customTimeSlots.length); // Debug log
             
-            // Create rows for each time slot
+            // Sort time slots by start time
             if (customTimeSlots.length > 0) {
-                // Use custom time slots if entries exist
+                customTimeSlots.sort((a, b) => {
+                    // Simple string comparison for time
+                    return a.start.localeCompare(b.start);
+                });
+                
+                // Create rows for each time slot
                 customTimeSlots.forEach(timeSlot => createTimeSlotRow(timeSlot, daysToDisplay, currentWeekEntries));
             } else {
-                // Default time slots with empty cells if no entries
+                // If no entries have time slots, show default empty timetable
+                const timeSlotList = timeSlots || [
+                    "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
+                    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
+                ];
+                
                 timeSlotList.forEach(time => {
                     const row = document.createElement('tr');
                     
@@ -196,23 +218,37 @@
                 days.forEach(day => {
                     const cell = document.createElement('td');
                     
-                    // Find entries for this day and time slot for the current week
+                    // Find entries for this day and time slot
                     const dayEntries = entries.filter(entry => {
-                        return entry.days && 
-                               entry.days.includes(day) && 
-                               entry.startTime === timeSlot.start &&
-                               entry.endTime === timeSlot.end;
+                        // Check if entry has days and they include this day
+                        let dayMatch = false;
+                        if (Array.isArray(entry.days)) {
+                            dayMatch = entry.days.includes(day);
+                        } else if (typeof entry.days === 'string') {
+                            dayMatch = entry.days === day;
+                        } else if (entry.day) {
+                            dayMatch = entry.day === day;
+                        }
+                        
+                        // Check if time slot matches
+                        const timeMatch = entry.startTime === timeSlot.start && entry.endTime === timeSlot.end;
+                        
+                        return dayMatch && timeMatch;
                     });
+                    
+                    console.log(`Found ${dayEntries.length} entries for ${day} at ${timeSlot.display}`); // Debug
                     
                     // Add content to cell if there are entries
                     dayEntries.forEach(entry => {
                         const entryDiv = document.createElement('div');
                         entryDiv.className = 'class-entry';
                         
-                        let entryContent = `
-                            <strong>${entry.course || 'Course'}</strong>
-                            <p class="venue">${entry.venue}</p>
-                        `;
+                        // Use more robust content generation
+                        let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+                        
+                        if (entry.venue) {
+                            entryContent += `<p class="venue">${entry.venue}</p>`;
+                        }
                         
                         if (entry.teacher) {
                             entryContent += `<p class="teacher">${entry.teacher}</p>`;
@@ -226,17 +262,6 @@
                 });
                 
                 table.appendChild(row);
-            }
-            
-            // Format time function
-            function formatTimeToAMPM(time) {
-                if (!time) return '';
-                const [hours, minutes] = time.split(':');
-                let hour = parseInt(hours);
-                const ampm = hour >= 12 ? 'PM' : 'AM';
-                hour = hour % 12;
-                hour = hour ? hour : 12;
-                return `${hour}:${minutes} ${ampm}`;
             }
         }
 
@@ -309,41 +334,82 @@
             }
         }
 
-        // Function to load data from API
+        // Replace your loadDataFromAPI function with this:
         function loadDataFromAPI() {
             console.log('Loading data from API for display...');
             
+            // Disable buttons during load to prevent interruptions
+            const prevWeekBtn = document.getElementById('prev-week');
+            const nextWeekBtn = document.getElementById('next-week');
+            
+            if (prevWeekBtn) prevWeekBtn.disabled = true;
+            if (nextWeekBtn) nextWeekBtn.disabled = true;
+            
+            // Keep track of completed requests
+            let requestsCompleted = 0;
+            const totalRequests = 3;
+            
+            // Function to enable buttons when all requests are complete
+            function checkIfComplete() {
+                requestsCompleted++;
+                if (requestsCompleted >= totalRequests) {
+                    if (prevWeekBtn) prevWeekBtn.disabled = false;
+                    if (nextWeekBtn) nextWeekBtn.disabled = false;
+                    console.log('All data loaded successfully');
+                }
+            }
+            
             // Load timetable data
             fetch('/api/timetable')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     console.log(`Loaded ${data.length} timetable entries from API`);
-                    // Store in localStorage for offline access
-                    localStorage.setItem('timetableEntries', JSON.stringify(data));
-                    // Update the display
-                    updateTimetable();
+                    if (Array.isArray(data) && data.length > 0) {
+                        // Store in localStorage for offline access
+                        localStorage.setItem('timetableEntries', JSON.stringify(data));
+                        // Update the display
+                        updateTimetable();
+                    } else {
+                        console.warn('Retrieved timetable data was empty or invalid');
+                    }
+                    checkIfComplete();
                 })
-                .catch(error => console.error('Error loading timetable data:', error));
+                .catch(error => {
+                    console.error('Error loading timetable data:', error);
+                    checkIfComplete();
+                });
             
-            // Load announcements
+            // Similar changes for announcements and notices fetch calls...
+            // ... (keep the rest of your function as it is)
+            
             fetch('/api/announcements')
                 .then(response => response.json())
                 .then(data => {
                     console.log(`Loaded ${data.length} announcements from API`);
                     localStorage.setItem('announcements', JSON.stringify(data));
                     updateAnnouncements();
+                    checkIfComplete();
                 })
-                .catch(error => console.error('Error loading announcements:', error));
+                .catch(error => {
+                    console.error('Error loading announcements:', error);
+                    checkIfComplete();
+                });
             
-            // Load notices
             fetch('/api/notices')
                 .then(response => response.json())
                 .then(data => {
                     console.log(`Loaded ${data.length} notices from API`);
                     localStorage.setItem('notices', JSON.stringify(data));
                     updateNotices();
+                    checkIfComplete();
                 })
-                .catch(error => console.error('Error loading notices:', error));
+                .catch(error => {
+                    console.error('Error loading notices:', error);
+                    checkIfComplete();
+                });
         }
 
         // MAIN INITIALIZATION - SINGLE DOMContentLoaded
@@ -352,71 +418,18 @@
             
             // Initial setup
             updateDateTime();
+            updateTimetable(); // Display what's currently in localStorage
             
-            // Set up UI event handlers
-            const clearAllBtn = document.getElementById('clear-all');
-            if (clearAllBtn) {
-                clearAllBtn.addEventListener('click', clearAllEntries);
-            }
-            
-            // Setup week navigation controls
-            const prevWeekBtn = document.getElementById('prev-week');
-            const nextWeekBtn = document.getElementById('next-week');
-            
-            if (prevWeekBtn) {
-                prevWeekBtn.addEventListener('click', function() {
-                    if (viewingWeek > 1) {
-                        viewingWeek--;
-                        document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                        window.weekNavigated = true; // Flag that user has manually changed weeks
-                        updateTimetable();
-                        console.log("Previous week clicked, now viewing week:", viewingWeek);
-                    }
-                });
-            }
-            
-            if (nextWeekBtn) {
-                nextWeekBtn.onclick = function() {
-                    viewingWeek++;
-                    document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                    window.weekNavigated = true; // Flag that user has manually changed weeks
-                    updateTimetable();
-                    console.log("Next week clicked, now viewing week:", viewingWeek);
-                    return false; // Prevent default action
-                };
-            }
-            
-            // Initial data load
+            // Initial data load from API
             loadDataFromAPI();
             
-            // Setup storage event listener for cross-tab communication
-            window.addEventListener('storage', function(event) {
-                if (event.key === 'forceDataReload' || 
-                    event.key === 'timetableUpdated' || 
-                    event.key === 'announcementsUpdated' || 
-                    event.key === 'noticesUpdated' ||
-                    event.key === 'timeSlots' || 
-                    event.key === 'timetableEntries') {
-                    console.log('Storage event detected, reloading data');
-                    loadDataFromAPI();
-                }
-            });
+            // Rest of your initialization code...
             
-            // Set up BroadcastChannel for cross-tab communication
-            try {
-                const bc = new BroadcastChannel('uni_schedule_updates');
-                bc.onmessage = (event) => {
-                    console.log('Received broadcast message:', event.data);
-                    if (event.data.type === 'data-updated') {
-                        loadDataFromAPI();
-                    }
-                };
-            } catch(e) {
-                console.log('BroadcastChannel not supported');
-            }
+            // REMOVE any auto-cycling
             
-            // Periodic refresh - reduced frequency to avoid potential issues
-            setInterval(loadDataFromAPI, 60000); // Every 60 seconds
+            // Use a single, longer interval for refreshing data
+            // Reduced frequency to prevent data loading issues
+            setInterval(loadDataFromAPI, 5 * 60 * 1000); // Every 5 minutes
         });
     </script>
     <script src="index.js"></script>
