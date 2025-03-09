@@ -121,37 +121,37 @@
             }
             table.innerHTML = ''; // Clear existing entries
             
-            // Filter entries for the current viewing week
+            // SIMPLIFIED WEEK MATCHING: This is the key fix
+            const formattedViewingWeek = `Week ${viewingWeek}`;
+            console.log('Looking for entries matching:', formattedViewingWeek);
+            
+            // Filter entries for the current viewing week with more lenient matching
             const currentWeekEntries = timetableEntries.filter(entry => {
-                // Skip entries without week information
                 if (!entry.week && entry.week !== 0) {
-                    console.log('Entry missing week property:', entry);
-                    return false;
+                    return false; // Skip entries without week information
                 }
                 
-                // Normalize the entry week format
-                const entryWeek = String(entry.week).toLowerCase().trim();
-                const targetWeek = String(viewingWeek).toLowerCase().trim();
-                const targetWeekFormatted = `week ${targetWeek}`.toLowerCase().trim();
+                const entryWeek = String(entry.week).trim();
                 
-                // Debug
-                console.log(`Comparing entry week "${entryWeek}" with target "${targetWeek}" or "${targetWeekFormatted}"`);
+                // Debug each entry's week
+                console.log(`Entry week: "${entryWeek}" - Comparing with "${formattedViewingWeek}" or "${viewingWeek}"`);
                 
-                // Multiple matching approaches
-                return entryWeek === targetWeek || 
-                       entryWeek === targetWeekFormatted ||
-                       entryWeek.includes(targetWeek) ||
-                       entryWeek.replace(/\s+/g, '') === targetWeekFormatted.replace(/\s+/g, '');
+                // More lenient matching - check different formats
+                return (
+                    entryWeek === String(viewingWeek) ||                      // "1" === "1"
+                    entryWeek === formattedViewingWeek ||                     // "Week 1" === "Week 1"
+                    entryWeek.toLowerCase() === formattedViewingWeek.toLowerCase() || // case insensitive
+                    entryWeek.includes(String(viewingWeek)) ||                // "Week 1 (Fall)" includes "1"
+                    entryWeek.toLowerCase().includes(`week ${viewingWeek}`.toLowerCase()) // "Week 1" in any case
+                );
             });
             
-            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries);
-            // Log the actual entries for debugging
-            currentWeekEntries.forEach((entry, i) => {
-                console.log(`Entry ${i+1}:`, entry.course, entry.days, `${entry.startTime}-${entry.endTime}`);
-            });
+            console.log('FOUND ENTRIES:', currentWeekEntries.length);
+            currentWeekEntries.forEach(e => console.log(' - Entry:', e.course, e.days, e.startTime));
             
-            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries.length); // Debug log
+            // Rest of your updateTimetable function remains the same...
             
+            // Continue with the existing code for creating the table
             // Determine which days have entries for this week
             const activeDays = new Set();
             currentWeekEntries.forEach(entry => {
@@ -478,20 +478,54 @@
                 .catch(err => console.error('Debug fetch error:', err));
         }
 
-        // MAIN INITIALIZATION - SINGLE DOMContentLoaded
+        // Add this function right after the updateDateTime function
+        function navigateWeek(direction) {
+            if (direction === 'next') {
+                viewingWeek++;
+            } else if (direction === 'prev') {
+                viewingWeek = Math.max(1, viewingWeek - 1);
+            }
+            
+            // Always update the display
+            document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+            console.log(`Navigated to week: ${viewingWeek}`);
+            
+            // Update the timetable to show the new week
+            updateTimetable();
+        }
+        
+        // Replace your DOM content loaded event at the bottom
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM content loaded - initializing timetable display');
             
             // Initial setup
             updateDateTime();
-            updateTimetable(); // Display what's currently in localStorage
+            
+            // IMPORTANT: Set viewingWeek to match currentWeek on load
+            setTimeout(() => {
+                viewingWeek = currentWeek;
+                document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                updateTimetable();
+            }, 500);
+            
+            // Setup navigation buttons
+            const prevWeekBtn = document.getElementById('prev-week');
+            const nextWeekBtn = document.getElementById('next-week');
+            
+            if (prevWeekBtn) {
+                prevWeekBtn.addEventListener('click', function() {
+                    navigateWeek('prev');
+                });
+            }
+            
+            if (nextWeekBtn) {
+                nextWeekBtn.addEventListener('click', function() {
+                    navigateWeek('next');
+                });
+            }
             
             // Initial data load from API
             loadDataFromAPI();
-            
-            // Rest of your initialization code...
-            
-            // REMOVE any auto-cycling
             
             // Use a single, longer interval for refreshing data
             // Reduced frequency to prevent data loading issues
