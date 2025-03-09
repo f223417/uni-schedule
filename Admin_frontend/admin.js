@@ -848,7 +848,7 @@ function forceDeleteAllItemsIndividually() {
 // ======================================================
 
 function generatePDF() {
-  console.log('Starting PDF generation with debug mode...');
+  console.log('Starting PDF generation with calendar layout...');
   
   // Show loading indicator
   const loadingMsg = document.createElement('div');
@@ -864,16 +864,15 @@ function generatePDF() {
   loadingMsg.textContent = 'Preparing PDF...';
   document.body.appendChild(loadingMsg);
   
-  // Enable debug mode - set to true to see the content on screen before PDF generation
-  const DEBUG_MODE = true;
+  // Debug mode - set to false for production
+  const DEBUG_MODE = false;
   
-  // Step 1: Load libraries with better error handling
+  // Step 1: Load libraries
   loadScriptsSequentially([
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
   ])
   .then(() => {
-    console.log('Libraries loaded successfully');
     updateLoadingMessage(loadingMsg, 'Fetching timetable data...');
     return fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`);
   })
@@ -883,20 +882,17 @@ function generatePDF() {
   })
   .then(data => {
     console.log(`Received ${data.length} timetable entries`);
-    updateLoadingMessage(loadingMsg, 'Creating PDF content...');
+    updateLoadingMessage(loadingMsg, 'Creating calendar layout...');
     
-    // Step 2: Create PDF container with guaranteed visibility
-    const container = createPDFContainer(data, DEBUG_MODE);
+    // Create weekly calendar layout
+    const container = createCalendarLayout(data, DEBUG_MODE);
     
-    // Step 3: Wait for rendering with clear visual feedback
     updateLoadingMessage(loadingMsg, 'Rendering content...');
     return waitForRendering(container, loadingMsg);
   })
   .then(container => {
     updateLoadingMessage(loadingMsg, 'Capturing content...');
-    console.log('Capturing container with html2canvas...');
     
-    // Step 4: Capture the rendered content
     return html2canvas(container, {
       scale: 2,
       useCORS: true,
@@ -911,9 +907,7 @@ function generatePDF() {
     }
     
     updateLoadingMessage(loadingMsg, 'Generating PDF...');
-    console.log('Canvas captured, creating PDF...');
     
-    // Step 5: Generate PDF from canvas
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
       orientation: 'landscape',
@@ -928,7 +922,7 @@ function generatePDF() {
     const imgHeight = canvas.height;
     
     // Calculate appropriate scaling
-    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight) * 0.9;
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight) * 0.95;
     
     // Add image to PDF
     pdf.addImage(imgData, 'PNG', 10, 10, imgWidth * ratio, imgHeight * ratio);
@@ -948,7 +942,7 @@ function generatePDF() {
     }
   });
   
-  // Helper function to load scripts in sequence
+  // Helper functions
   function loadScriptsSequentially(srcs) {
     return srcs.reduce((promise, src) => {
       return promise.then(() => {
@@ -980,7 +974,6 @@ function generatePDF() {
     }, Promise.resolve());
   }
   
-  // Helper function to update loading message
   function updateLoadingMessage(element, message) {
     if (element) {
       element.textContent = message;
@@ -988,10 +981,8 @@ function generatePDF() {
     }
   }
   
-  // Helper function to wait for rendering
   function waitForRendering(container, loadingMsg) {
     return new Promise(resolve => {
-      // Use a longer timeout to ensure rendering is complete
       setTimeout(() => {
         updateLoadingMessage(loadingMsg, 'Content ready for capture...');
         resolve(container);
@@ -999,26 +990,24 @@ function generatePDF() {
     });
   }
   
-  // Helper function to create PDF container with timetable content
-  function createPDFContainer(data, debugMode) {
-    // Create container with absolute positioning instead of fixed
+  function createCalendarLayout(data, debugMode) {
+    // Create container
     const container = document.createElement('div');
-    container.id = 'pdf-container-' + Date.now();
-    container.className = 'pdf-container';
-    container.style.width = '1000px';
+    container.id = 'pdf-calendar-container-' + Date.now();
+    container.className = 'pdf-calendar-container';
+    container.style.width = '1100px';  // Wider to fit the calendar layout
     container.style.backgroundColor = 'white';
     container.style.padding = '40px';
     container.style.boxSizing = 'border-box';
+    container.style.fontFamily = 'Arial, sans-serif';
     
     if (debugMode) {
-      // In debug mode, make the container visible for inspection
       container.style.position = 'absolute';
       container.style.top = '20px';
       container.style.left = '20px';
       container.style.zIndex = '9998';
       container.style.border = '2px solid red';
     } else {
-      // In production mode, move off-screen but keep rendered
       container.style.position = 'absolute';
       container.style.top = '-9999px';
       container.style.left = '-9999px';
@@ -1053,11 +1042,13 @@ function generatePDF() {
         weekGroups[week].push(entry);
       });
       
-      // Process each week
+      // Create a weekly calendar for each week
       Object.keys(weekGroups).sort().forEach(week => {
-        // Add section for this week
-        const sectionDiv = document.createElement('div');
-        sectionDiv.style.marginBottom = '30px';
+        const weekEntries = weekGroups[week];
+        
+        // Create weekly container
+        const weekContainer = document.createElement('div');
+        weekContainer.style.marginBottom = '30px';
         
         // Add week title
         const weekTitle = document.createElement('h2');
@@ -1067,50 +1058,137 @@ function generatePDF() {
         weekTitle.style.borderBottom = '2px solid #4a90e2';
         weekTitle.style.paddingBottom = '5px';
         weekTitle.style.marginBottom = '15px';
-        sectionDiv.appendChild(weekTitle);
+        weekContainer.appendChild(weekTitle);
         
-        // Create simple table with guaranteed rendering
+        // Create calendar table
         const table = document.createElement('table');
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
         table.style.marginBottom = '20px';
         table.style.fontSize = '14px';
+        table.style.tableLayout = 'fixed';
         
-        // Add table header
-        let tableHTML = `
-          <thead>
-            <tr>
-              <th style="border:1px solid #ddd; padding:10px; background:#4a90e2; color:white;">Course</th>
-              <th style="border:1px solid #ddd; padding:10px; background:#4a90e2; color:white;">Day</th>
-              <th style="border:1px solid #ddd; padding:10px; background:#4a90e2; color:white;">Time</th>
-              <th style="border:1px solid #ddd; padding:10px; background:#4a90e2; color:white;">Teacher</th>
-              <th style="border:1px solid #ddd; padding:10px; background:#4a90e2; color:white;">Location</th>
-            </tr>
-          </thead>
-          <tbody>
-        `;
-        
-        // Add entries for this week
-        weekGroups[week].forEach((entry, index) => {
-          const bgColor = index % 2 === 0 ? '#f9f9f9' : 'white';
-          const days = Array.isArray(entry.days) ? entry.days.join(', ') : 
-                       (typeof entry.days === 'string' ? entry.days : '');
-          
-          tableHTML += `
-            <tr style="background-color:${bgColor}">
-              <td style="border:1px solid #ddd; padding:8px;">${entry.course || ''}</td>
-              <td style="border:1px solid #ddd; padding:8px;">${days}</td>
-              <td style="border:1px solid #ddd; padding:8px;">${entry.startTime || ''} - ${entry.endTime || ''}</td>
-              <td style="border:1px solid #ddd; padding:8px;">${entry.teacher || ''}</td>
-              <td style="border:1px solid #ddd; padding:8px;">${entry.venue || ''}</td>
-            </tr>
-          `;
+        // Extract all unique time slots from entries for this week
+        let timeSlots = [];
+        weekEntries.forEach(entry => {
+          if (entry.startTime && !timeSlots.includes(entry.startTime)) {
+            timeSlots.push(entry.startTime);
+          }
         });
         
-        tableHTML += `</tbody>`;
-        table.innerHTML = tableHTML;
-        sectionDiv.appendChild(table);
-        container.appendChild(sectionDiv);
+        // If no time slots found, use default slots
+        if (timeSlots.length === 0) {
+          timeSlots = [
+            '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+            '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'
+          ];
+        }
+        
+        // Sort time slots
+        timeSlots.sort((a, b) => {
+          return new Date('1/1/2023 ' + a) - new Date('1/1/2023 ' + b);
+        });
+        
+        // Create table header with days
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const headerRow = document.createElement('tr');
+        
+        // Add empty corner cell
+        const cornerCell = document.createElement('th');
+        cornerCell.textContent = 'Time / Day';
+        cornerCell.style.border = '1px solid #ddd';
+        cornerCell.style.padding = '10px';
+        cornerCell.style.backgroundColor = '#4a90e2';
+        cornerCell.style.color = 'white';
+        cornerCell.style.fontWeight = 'bold';
+        headerRow.appendChild(cornerCell);
+        
+        // Add day headers
+        days.forEach(day => {
+          const dayHeader = document.createElement('th');
+          dayHeader.textContent = day;
+          dayHeader.style.border = '1px solid #ddd';
+          dayHeader.style.padding = '10px';
+          dayHeader.style.backgroundColor = '#4a90e2';
+          dayHeader.style.color = 'white';
+          dayHeader.style.fontWeight = 'bold';
+          headerRow.appendChild(dayHeader);
+        });
+        
+        const thead = document.createElement('thead');
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Create table body
+        const tbody = document.createElement('tbody');
+        
+        // Create a row for each time slot
+        timeSlots.forEach((timeSlot, index) => {
+          const row = document.createElement('tr');
+          row.style.backgroundColor = index % 2 === 0 ? '#f9f9f9' : 'white';
+          
+          // Add time slot cell
+          const timeCell = document.createElement('td');
+          timeCell.textContent = timeSlot;
+          timeCell.style.border = '1px solid #ddd';
+          timeCell.style.padding = '10px';
+          timeCell.style.fontWeight = 'bold';
+          timeCell.style.verticalAlign = 'top';
+          row.appendChild(timeCell);
+          
+          // Add cells for each day
+          days.forEach(day => {
+            const dayCell = document.createElement('td');
+            dayCell.style.border = '1px solid #ddd';
+            dayCell.style.padding = '8px';
+            dayCell.style.verticalAlign = 'top';
+            dayCell.style.height = '80px';
+            
+            // Find entries for this day and time slot
+            const entries = weekEntries.filter(entry => {
+              // Check if entry day matches (either as string or array)
+              const entryDays = Array.isArray(entry.days) ? entry.days : [entry.days];
+              const isDayMatch = entryDays.some(d => d === day);
+              
+              // Check if entry time matches
+              const isTimeMatch = entry.startTime === timeSlot;
+              
+              return isDayMatch && isTimeMatch;
+            });
+            
+            // If entries found, add them to the cell
+            if (entries.length > 0) {
+              entries.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.style.backgroundColor = '#e6f7ff';
+                entryDiv.style.borderLeft = '4px solid #4a90e2';
+                entryDiv.style.padding = '8px';
+                entryDiv.style.marginBottom = '4px';
+                entryDiv.style.borderRadius = '3px';
+                
+                // Create styled content
+                entryDiv.innerHTML = `
+                  <div style="font-weight:bold; margin-bottom:3px;">${entry.course || 'Unknown Course'}</div>
+                  <div style="font-size:12px; color:#555;">
+                    ${entry.teacher ? `<div>${entry.teacher}</div>` : ''}
+                    ${entry.venue ? `<div>${entry.venue}</div>` : ''}
+                    ${entry.startTime && entry.endTime ? `<div>${entry.startTime} - ${entry.endTime}</div>` : ''}
+                  </div>
+                `;
+                
+                dayCell.appendChild(entryDiv);
+              });
+            }
+            
+            row.appendChild(dayCell);
+          });
+          
+          tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        weekContainer.appendChild(table);
+        container.appendChild(weekContainer);
       });
     }
     
@@ -1125,29 +1203,17 @@ function generatePDF() {
     footer.textContent = 'University Timetable System';
     container.appendChild(footer);
     
-    // Add debug info if in debug mode
+    // Add debug controls if in debug mode
     if (debugMode) {
-      const debugInfo = document.createElement('div');
-      debugInfo.style.marginTop = '20px';
-      debugInfo.style.padding = '10px';
-      debugInfo.style.backgroundColor = '#ffff99';
-      debugInfo.style.border = '1px solid #999';
-      debugInfo.innerHTML = `
-        <p><strong>DEBUG INFO:</strong></p>
-        <p>Container ID: ${container.id}</p>
-        <p>Total entries: ${data.length}</p>
-        <p>Browser: ${navigator.userAgent}</p>
-        <p>Time: ${new Date().toISOString()}</p>
-      `;
-      container.appendChild(debugInfo);
+      const debugControls = document.createElement('div');
+      debugControls.style.position = 'fixed';
+      debugControls.style.top = '10px';
+      debugControls.style.right = '10px';
+      debugControls.style.zIndex = '10000';
       
-      // Add close button for debug mode
       const closeBtn = document.createElement('button');
       closeBtn.textContent = 'Close Preview';
-      closeBtn.style.position = 'absolute';
-      closeBtn.style.top = '10px';
-      closeBtn.style.right = '10px';
-      closeBtn.style.padding = '5px 10px';
+      closeBtn.style.padding = '8px 16px';
       closeBtn.style.backgroundColor = 'red';
       closeBtn.style.color = 'white';
       closeBtn.style.border = 'none';
@@ -1157,13 +1223,16 @@ function generatePDF() {
         if (container.parentNode) {
           container.parentNode.removeChild(container);
         }
+        if (debugControls.parentNode) {
+          debugControls.parentNode.removeChild(debugControls);
+        }
       };
-      container.appendChild(closeBtn);
+      
+      debugControls.appendChild(closeBtn);
+      document.body.appendChild(debugControls);
     }
     
-    // Add to document body
     document.body.appendChild(container);
-    console.log(`PDF container created with ID: ${container.id}`);
     return container;
   }
 }
