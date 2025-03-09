@@ -941,28 +941,38 @@ function setupFormHandlers() { /* your implementation */
 // ======================================================
 // SUBMISSION HANDLERS
 // ======================================================
-// Fix submitTimetableEntry function
+// Complete fixed submitTimetableEntry function
+// Fixed submitTimetableEntry function
 function submitTimetableEntry() {
   console.log('Submitting timetable entry...');
   
-  // Get form elements - fix ID references to match your HTML
+  // Get form elements
   const weekInput = document.getElementById('week');
   const courseInput = document.getElementById('course');
-  const daysSelect = document.getElementById('days');
+  const dayCheckboxes = document.querySelectorAll('input[name="days[]"]');
   const startTimeInput = document.getElementById('start-time');
   const endTimeInput = document.getElementById('end-time');
   const teacherInput = document.getElementById('teacher');
   const venueInput = document.getElementById('venue');
   const submitBtn = document.querySelector('#timetable-form button[type="submit"]');
   
-  // Debug which elements weren't found
+  // Debug form elements to see what's found
+  console.log('Form elements:');
+  console.log('Week:', weekInput);
+  console.log('Course:', courseInput);
+  console.log('Day checkboxes:', dayCheckboxes.length);
+  console.log('Start Time:', startTimeInput);
+  console.log('End Time:', endTimeInput);
+  console.log('Teacher:', teacherInput);
+  console.log('Venue:', venueInput);
+  
+  // Check for missing fields
   const missingFields = [];
   if (!weekInput) missingFields.push('week');
   if (!courseInput) missingFields.push('course');
-  if (!daysSelect) missingFields.push('days');
+  if (dayCheckboxes.length === 0) missingFields.push('days');
   if (!startTimeInput) missingFields.push('start-time');
   if (!endTimeInput) missingFields.push('end-time');
-  if (!teacherInput) missingFields.push('teacher');
   if (!venueInput) missingFields.push('venue');
   
   if (missingFields.length > 0) {
@@ -971,8 +981,102 @@ function submitTimetableEntry() {
     return;
   }
   
-  // Rest of your function remains the same
-  // ...
+  // Get form values
+  const week = weekInput.value;
+  const course = courseInput.value;
+  const startTime = startTimeInput.value;
+  const endTime = endTimeInput.value;
+  const teacher = teacherInput ? teacherInput.value : '';
+  const venue = venueInput.value;
+  
+  // Get selected days from checkboxes
+  const days = [];
+  dayCheckboxes.forEach(checkbox => {
+    if (checkbox.checked) {
+      days.push(checkbox.value);
+    }
+  });
+  
+  // Validate required fields
+  if (!week || !course || days.length === 0 || !startTime || !endTime || !venue) {
+    alert('Please fill all required fields. Make sure to select at least one day.');
+    return;
+  }
+  
+  // Validate time (start time should be before end time)
+  if (startTime >= endTime) {
+    alert('Start time must be before end time.');
+    return;
+  }
+  
+  // Show loading state
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+  }
+  
+  // Save values for future autocomplete
+  storeUniqueCourse(course);
+  if (teacher) storeUniqueTeacher(teacher);
+  storeUniqueVenue(venue);
+  
+  // Create entry object
+  const entry = {
+    week,
+    course,
+    days,
+    startTime,
+    endTime,
+    teacher,
+    venue
+  };
+  
+  console.log('Submitting entry:', entry);
+  
+  // Send to API
+  fetch(`${API_BASE_URL}/timetable`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(entry)
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.text().then(text => {
+        throw new Error(`Server error: ${text || response.status}`);
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('Timetable entry added successfully:', data);
+    alert('Timetable entry added successfully!');
+    
+    // Clear form
+    courseInput.value = '';
+    dayCheckboxes.forEach(checkbox => checkbox.checked = false);
+    startTimeInput.value = '';
+    endTimeInput.value = '';
+    if (teacherInput) teacherInput.value = '';
+    venueInput.value = '';
+    
+    // Reload timetable entries
+    loadTimetableEntries();
+    
+    // Force index page to reload
+    localStorage.setItem('forceDataReload', Date.now().toString());
+  })
+  .catch(error => {
+    console.error('Error adding timetable entry:', error);
+    alert(`Failed to add timetable entry: ${error.message}`);
+  })
+  .finally(() => {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add Entry';
+    }
+  });
 }
 // Fix submitAnnouncement function
 function submitAnnouncement() {
