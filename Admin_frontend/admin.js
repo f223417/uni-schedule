@@ -2002,28 +2002,16 @@ function manageSavedData() {
     section.appendChild(addForm);
     section.appendChild(dataList);
     
-    // Add export/import buttons
-    const actionButtons = document.createElement('div');
-    actionButtons.style.marginTop = '15px';
-    actionButtons.style.display = 'flex';
-    actionButtons.style.gap = '10px';
-    
-    const exportBtn = document.createElement('button');
-    exportBtn.textContent = `EXPORT ${title.toUpperCase()}`;
-    exportBtn.style.padding = '5px 10px';
-    exportBtn.onclick = function() {
-      const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${storageKey}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-    
+    // Add clear button
     const clearBtn = document.createElement('button');
     clearBtn.textContent = `CLEAR ${title.toUpperCase()}`;
     clearBtn.style.padding = '5px 10px';
+    clearBtn.style.marginTop = '10px';
+    clearBtn.style.backgroundColor = '#d9534f';
+    clearBtn.style.color = 'white';
+    clearBtn.style.border = 'none';
+    clearBtn.style.borderRadius = '4px';
+    clearBtn.style.cursor = 'pointer';
     clearBtn.onclick = function() {
       if (confirm(`Are you sure you want to clear all ${title.toLowerCase()}?`)) {
         data.length = 0;
@@ -2032,10 +2020,7 @@ function manageSavedData() {
       }
     };
     
-    actionButtons.appendChild(exportBtn);
-    actionButtons.appendChild(clearBtn);
-    section.appendChild(actionButtons);
-    
+    section.appendChild(clearBtn);
     refreshDataDisplay();
     return section;
   }
