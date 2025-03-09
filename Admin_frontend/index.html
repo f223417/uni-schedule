@@ -119,7 +119,16 @@
             headerRow.appendChild(timeHeader);
 
             // Define weekdays
-            const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+            const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+            const weekendDays = ["Saturday", "Sunday"];
+
+            // Filter entries for the current viewing week
+            const currentWeekEntries = timetableEntries.filter(entry => entry.week === `Week ${viewingWeek}`);
+            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries);
+
+            // Determine if there are entries for Saturday or Sunday
+            const hasSaturdayEntries = currentWeekEntries.some(entry => entry.days.includes("Saturday"));
+            const hasSundayEntries = currentWeekEntries.some(entry => entry.days.includes("Sunday"));
 
             // Add day headers
             weekdays.forEach(day => {
@@ -128,11 +137,19 @@
                 headerRow.appendChild(th);
             });
 
-            table.appendChild(headerRow);
+            if (hasSaturdayEntries) {
+                const th = document.createElement('th');
+                th.textContent = "Saturday";
+                headerRow.appendChild(th);
+            }
 
-            // Filter entries for the current viewing week
-            const currentWeekEntries = timetableEntries.filter(entry => entry.week === `Week ${viewingWeek}`);
-            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries);
+            if (hasSundayEntries) {
+                const th = document.createElement('th');
+                th.textContent = "Sunday";
+                headerRow.appendChild(th);
+            }
+
+            table.appendChild(headerRow);
 
             // Get unique time slots from entries
             const customTimeSlots = [];
@@ -204,6 +221,52 @@
                         row.appendChild(cell);
                     });
 
+                    if (hasSaturdayEntries) {
+                        const cell = document.createElement('td');
+                        const dayEntries = currentWeekEntries.filter(entry => entry.days.includes("Saturday") && entry.startTime === timeSlot.start && entry.endTime === timeSlot.end);
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+                        row.appendChild(cell);
+                    }
+
+                    if (hasSundayEntries) {
+                        const cell = document.createElement('td');
+                        const dayEntries = currentWeekEntries.filter(entry => entry.days.includes("Sunday") && entry.startTime === timeSlot.start && entry.endTime === timeSlot.end);
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+                        row.appendChild(cell);
+                    }
+
                     table.appendChild(row);
                 });
             } else {
@@ -227,6 +290,16 @@
                         const cell = document.createElement('td');
                         row.appendChild(cell);
                     });
+
+                    if (hasSaturdayEntries) {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    }
+
+                    if (hasSundayEntries) {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    }
 
                     table.appendChild(row);
                 });
