@@ -1034,29 +1034,11 @@ function generatePDF() {
       emptyMsg.style.color = '#666';
       container.appendChild(emptyMsg);
     } else {
-      // Create a consistent color mapping for courses
-      const courseColors = {};
-      const colorOptions = [
-        '#ffebee', '#e3f2fd', '#e8f5e9', '#fff3e0', '#f3e5f5', 
-        '#e0f7fa', '#fff8e1', '#f1f8e9', '#f9fbe7', '#ede7f6'
-      ];
-      const borderColors = [
-        '#ef5350', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc',
-        '#26c6da', '#ffca28', '#9ccc65', '#d4e157', '#7e57c2'
-      ];
-      
-      let colorIndex = 0;
-      
-      // Generate a color for each unique course
-      data.forEach(entry => {
-        if (entry.course && !courseColors[entry.course]) {
-          courseColors[entry.course] = {
-            background: colorOptions[colorIndex % colorOptions.length],
-            border: borderColors[colorIndex % borderColors.length]
-          };
-          colorIndex++;
-        }
-      });
+      // Define a single blue color scheme for all entries
+      const blueColorScheme = {
+        background: '#e3f2fd',  // Light blue background
+        border: '#42a5f5'       // Medium blue border
+      };
       
       // Group entries by week
       const weekGroups = {};
@@ -1206,17 +1188,10 @@ function generatePDF() {
               dayCell.style.padding = '5px';
               
               entries.forEach((entry, entryIndex) => {
-                // Get color for this course or use a default
-                const colorSet = entry.course && courseColors[entry.course] ? 
-                  courseColors[entry.course] : {
-                    background: colorOptions[entryIndex % colorOptions.length],
-                    border: borderColors[entryIndex % borderColors.length]
-                  };
-                
-                // Create a container for this entry with colored styling
+                // Create a container for this entry with the standard blue styling
                 const entryContainer = document.createElement('div');
-                entryContainer.style.backgroundColor = colorSet.background;
-                entryContainer.style.borderLeft = `4px solid ${colorSet.border}`;
+                entryContainer.style.backgroundColor = blueColorScheme.background;
+                entryContainer.style.borderLeft = `4px solid ${blueColorScheme.border}`;
                 entryContainer.style.padding = '8px';
                 entryContainer.style.marginBottom = entryIndex < entries.length - 1 ? '8px' : '0';
                 entryContainer.style.borderRadius = '3px';
