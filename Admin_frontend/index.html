@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
     <title>Timetable</title>
-    <!-- Add these to your existing head section -->
+    <!-- PDF generation libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -73,9 +73,8 @@
             document.getElementById('week-number').textContent = weekNumber;
             currentWeek = weekNumber;
             
-            // Only set viewing week to current week when the page first loads
-            if (!window.weekNavigated) {
-                viewingWeek = currentWeek;
+            // Set display week if it hasn't been set yet
+            if (!document.getElementById('display-week').textContent) {
                 document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
             }
             
@@ -310,123 +309,6 @@
             }
         }
 
-        // Update the navigation button event listeners
-
-        document.addEventListener('DOMContentLoaded', function() {
-            updateDateTime();
-            updateTimetable();
-            updateAnnouncements();
-            updateNotices();
-
-            // Add clear-all event listener if element exists
-            const clearAllBtn = document.getElementById('clear-all');
-            if (clearAllBtn) {
-                clearAllBtn.addEventListener('click', clearAllEntries);
-            }
-            
-            // Fix for week navigation controls
-            const prevWeekBtn = document.getElementById('prev-week');
-            const nextWeekBtn = document.getElementById('next-week');
-            
-            if (prevWeekBtn) {
-                prevWeekBtn.addEventListener('click', function() {
-                    if (viewingWeek > 1) {
-                        viewingWeek--;
-                        document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                        window.weekNavigated = true; // Flag that user has manually changed weeks
-                        updateTimetable();
-                        console.log("Previous week clicked, now viewing week:", viewingWeek);
-                    }
-                });
-            }
-            
-            if (nextWeekBtn) {
-                // Direct onclick handler instead of addEventListener
-                nextWeekBtn.onclick = function() {
-                    viewingWeek++;
-                    document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                    window.weekNavigated = true; // Flag that user has manually changed weeks
-                    updateTimetable();
-                    console.log("Next week clicked, now viewing week:", viewingWeek);
-                    return false; // Prevent default action
-                };
-            }
-        });
-
-        // Add this to your existing script
-        window.addEventListener('storage', function(event) {
-            if (event.key === 'timeSlots' || event.key === 'timetableEntries') {
-                updateTimetable();
-            }
-        });
-
-        // Add this to the <script> section in your index.html file
-        document.addEventListener('DOMContentLoaded', function() {
-            setupIndexPageSync();
-            forceReloadAllData(); // Initial load
-            
-            // Force reload periodically
-            setInterval(() => {
-                console.log('Periodic refresh - checking for updates');
-                forceReloadAllData();
-            }, 10000); // Every 10 seconds
-        });
-
-        // THESE ARE THE MISSING FUNCTIONS YOU NEED TO ADD TO INDEX.HTML
-        function setupIndexPageSync() {
-            console.log('Setting up index page data sync system...');
-            
-            // Check for data updates very frequently
-            setInterval(checkForDataChanges, 500); // Check every 500ms
-            
-            // Setup storage event listener (this fires when another tab changes localStorage)
-            window.addEventListener('storage', function(event) {
-                console.log('Storage event detected:', event.key);
-                if (event.key === 'timetableEntries' || 
-                    event.key === 'announcements' || 
-                    event.key === 'notices' ||
-                    event.key === 'forceReload') {
-                    console.log('Relevant data changed, updating display...');
-                    updateAllData();
-                }
-            });
-        }
-
-        // Global timestamp to track forced reloads
-        let lastForceReloadTimestamp = 0;
-
-        function checkForDataChanges() {
-            // Check if a force reload was requested
-            const forceReload = localStorage.getItem('forceReload');
-            if (forceReload && parseInt(forceReload) > lastForceReloadTimestamp) {
-                console.log('Force reload detected with timestamp:', forceReload);
-                lastForceReloadTimestamp = parseInt(forceReload);
-                updateAllData();
-                return;
-            }
-        }
-
-        function updateAllData() {
-            console.log('Updating all data from localStorage...');
-            
-            // Always reload from localStorage (bypassing any cached variables)
-            updateTimetable();
-            updateAnnouncements();
-            updateNotices();
-        }
-
-        function forceReloadAllData() {
-            console.log('Forcing complete data reload...');
-            
-            // Clear any runtime caches
-            window.timetableCache = null;
-            window.announcementsCache = null;
-            window.noticesCache = null;
-            
-            // Update the UI from localStorage
-            updateAllData();
-        }
-
         // Function to load data from API
         function loadDataFromAPI() {
             console.log('Loading data from API for display...');
@@ -464,17 +346,57 @@
                 .catch(error => console.error('Error loading notices:', error));
         }
 
-        // Add this to your DOMContentLoaded event in index.html
+        // MAIN INITIALIZATION - SINGLE DOMContentLoaded
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM content loaded - initializing timetable display');
+            
+            // Initial setup
+            updateDateTime();
+            
+            // Set up UI event handlers
+            const clearAllBtn = document.getElementById('clear-all');
+            if (clearAllBtn) {
+                clearAllBtn.addEventListener('click', clearAllEntries);
+            }
+            
+            // Setup week navigation controls
+            const prevWeekBtn = document.getElementById('prev-week');
+            const nextWeekBtn = document.getElementById('next-week');
+            
+            if (prevWeekBtn) {
+                prevWeekBtn.addEventListener('click', function() {
+                    if (viewingWeek > 1) {
+                        viewingWeek--;
+                        document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                        window.weekNavigated = true; // Flag that user has manually changed weeks
+                        updateTimetable();
+                        console.log("Previous week clicked, now viewing week:", viewingWeek);
+                    }
+                });
+            }
+            
+            if (nextWeekBtn) {
+                nextWeekBtn.onclick = function() {
+                    viewingWeek++;
+                    document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                    window.weekNavigated = true; // Flag that user has manually changed weeks
+                    updateTimetable();
+                    console.log("Next week clicked, now viewing week:", viewingWeek);
+                    return false; // Prevent default action
+                };
+            }
+            
             // Initial data load
             loadDataFromAPI();
             
-            // Listen for updates from admin panel
+            // Setup storage event listener for cross-tab communication
             window.addEventListener('storage', function(event) {
                 if (event.key === 'forceDataReload' || 
                     event.key === 'timetableUpdated' || 
                     event.key === 'announcementsUpdated' || 
-                    event.key === 'noticesUpdated') {
+                    event.key === 'noticesUpdated' ||
+                    event.key === 'timeSlots' || 
+                    event.key === 'timetableEntries') {
                     console.log('Storage event detected, reloading data');
                     loadDataFromAPI();
                 }
@@ -493,8 +415,8 @@
                 console.log('BroadcastChannel not supported');
             }
             
-            // Periodic refresh
-            setInterval(loadDataFromAPI, 30000); // Every 30 seconds
+            // Periodic refresh - reduced frequency to avoid potential issues
+            setInterval(loadDataFromAPI, 60000); // Every 60 seconds
         });
     </script>
     <script src="index.js"></script>
