@@ -19,6 +19,7 @@
         <button id="prev-week">Previous Week</button>
         <span id="display-week"></span>
         <button id="next-week">Next Week</button>
+        <button id="refresh-btn" style="margin-left: 20px; background: #4CAF50; color: white; border: none; padding: 5px 10px; cursor: pointer;">Refresh Data</button>
     </div>
     <div class="timetable-container">
         <table id="timetable-entries" class="timetable">
@@ -53,6 +54,9 @@
         
         // Flag to track if user has manually navigated
         let weekNavigated = false;
+        
+        // Flag to track if data is loading
+        let isDataLoading = false;
 
         function updateDateTime() {
             const now = new Date();
@@ -112,10 +116,17 @@
             }
         }
 
-        // Update the timetable function
+        // IMPROVED: Update the timetable function with better debug logging
         function updateTimetable() {
             console.log('Updating timetable for week', viewingWeek);
             const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
+            console.log('Total entries loaded:', timetableEntries.length);
+            
+            // Display entries in console for debugging
+            if (timetableEntries.length > 0) {
+                console.log('Sample entry:', timetableEntries[0]);
+                console.log('All weeks in data:', [...new Set(timetableEntries.map(e => e.week))]);
+            }
             
             const table = document.getElementById('timetable-entries');
             if (!table) {
@@ -124,17 +135,33 @@
             }
             table.innerHTML = ''; // Clear existing entries
             
-            // Filter entries for the current viewing week
+            // IMPROVED: More robust filtering logic with better type handling
             const currentWeekEntries = timetableEntries.filter(entry => {
-                if (!entry.week) return false;
+                if (entry.week === undefined || entry.week === null) {
+                    return false; // Skip entries with no week
+                }
                 
+                // Convert both to strings for comparison and normalize format
                 const entryWeek = String(entry.week).trim();
-                const targetWeek = `Week ${viewingWeek}`;
+                const targetWeekStr = String(viewingWeek);
+                const targetWeekFormatted = `Week ${viewingWeek}`;
                 
-                return entryWeek === targetWeek || 
-                       entryWeek === String(viewingWeek) ||
-                       entryWeek.toLowerCase() === targetWeek.toLowerCase();
+                // Multiple matching approaches for maximum compatibility
+                const isMatch = 
+                    entryWeek === targetWeekStr || // "1" === "1"
+                    entryWeek === targetWeekFormatted || // "Week 1" === "Week 1"
+                    entryWeek.toLowerCase() === targetWeekFormatted.toLowerCase() || // Case insensitive
+                    entryWeek.includes(targetWeekStr) || // "Some Week 1" includes "1"
+                    entryWeek.toLowerCase().includes(`week ${targetWeekStr}`.toLowerCase()); // Any case
+                
+                if (isMatch) {
+                    console.log('Matched entry:', entry);
+                }
+                
+                return isMatch;
             });
+            
+            console.log(`Found ${currentWeekEntries.length} entries for week ${viewingWeek}`);
             
             // Determine which days have entries for this week
             const activeDays = new Set();
@@ -180,8 +207,13 @@
             // Get unique time slots from entries
             const customTimeSlots = [];
             currentWeekEntries.forEach(entry => {
-                if (!entry.startTime || !entry.endTime) return;
+                // Skip entries without time information
+                if (!entry.startTime || !entry.endTime) {
+                    console.log('Entry missing time info:', entry);
+                    return;
+                }
                 
+                // Add time slot if not already in the list
                 if (!customTimeSlots.some(slot => slot.start === entry.startTime && slot.end === entry.endTime)) {
                     customTimeSlots.push({
                         start: entry.startTime,
@@ -190,6 +222,8 @@
                     });
                 }
             });
+            
+            console.log('Found time slots:', customTimeSlots);
             
             // Sort custom time slots by start time if they exist
             if (customTimeSlots.length > 0) {
@@ -227,6 +261,10 @@
                             return dayMatch && timeMatch;
                         });
                         
+                        if (dayEntries.length > 0) {
+                            console.log(`Found ${dayEntries.length} entries for ${day} at ${timeSlot.display}`);
+                        }
+                        
                         // Add content to cell if entries found
                         dayEntries.forEach(entry => {
                             const entryDiv = document.createElement('div');
@@ -253,6 +291,7 @@
                     table.appendChild(row);
                 });
             } else {
+                console.log('No time slots found, using default slots');
                 // Use default time slots if no entries found
                 timeSlots.forEach(time => {
                     const row = document.createElement('tr');
@@ -313,19 +352,45 @@
             });
         }
 
-        // Function to load data from API
+        // IMPROVED: Function to load data from API with safety checks
         function loadDataFromAPI() {
+            if (isDataLoading) {
+                console.log('Data load already in progress, skipping');
+                return;
+            }
+            
+            isDataLoading = true;
             console.log('Loading data from API...');
+            
+            // Show loading indicator
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (refreshBtn) refreshBtn.textContent = 'Loading...';
             
             // Load timetable data
             fetch('/api/timetable')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     console.log(`Loaded ${data.length} timetable entries from API`);
+                    
+                    // Show week formats in the data for debugging
+                    if (data.length > 0) {
+                        const weekFormats = [...new Set(data.map(e => e.week))];
+                        console.log('Week formats in data:', weekFormats);
+                    }
+                    
                     localStorage.setItem('timetableEntries', JSON.stringify(data));
                     updateTimetable();
+                    isDataLoading = false;
+                    if (refreshBtn) refreshBtn.textContent = 'Refresh Data';
                 })
-                .catch(error => console.error('Error loading timetable data:', error));
+                .catch(error => {
+                    console.error('Error loading timetable data:', error);
+                    isDataLoading = false;
+                    if (refreshBtn) refreshBtn.textContent = 'Refresh Data';
+                });
             
             // Load announcements
             fetch('/api/announcements')
@@ -362,12 +427,20 @@
             updateTimetable();
         }
         
-        // Function to cycle through weeks (current and next)
+        // IMPROVED: Function to cycle through weeks with safety checks
         function cycleThroughWeeks() {
-            // If showing current week
-            if (viewingWeek === currentWeek && !window.weekNavigated) {
+            // Only cycle if not manually navigated and not loading data
+            if (viewingWeek === currentWeek && !window.weekNavigated && !isDataLoading) {
+                console.log('Starting cycle - current week display');
+                
                 // After 20 seconds, show next week
                 setTimeout(() => {
+                    if (isDataLoading) {
+                        console.log('Data loading in progress, delaying cycle');
+                        cycleThroughWeeks(); // Retry
+                        return;
+                    }
+                    
                     viewingWeek = currentWeek + 1;
                     document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
                     updateTimetable();
@@ -375,6 +448,16 @@
                     
                     // After 10 seconds showing next week, go back to current
                     setTimeout(() => {
+                        if (isDataLoading) {
+                            console.log('Data loading in progress, delaying cycle');
+                            // Reset to current week and retry
+                            viewingWeek = currentWeek;
+                            document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                            updateTimetable();
+                            cycleThroughWeeks();
+                            return;
+                        }
+                        
                         viewingWeek = currentWeek;
                         document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
                         updateTimetable();
@@ -382,6 +465,10 @@
                         cycleThroughWeeks(); // Restart the cycle
                     }, 10000);
                 }, 20000);
+            } else {
+                // If manually navigated, check again in a bit
+                console.log('Skipping cycle - user navigated or data loading');
+                setTimeout(cycleThroughWeeks, 5000);
             }
         }
 
@@ -396,6 +483,7 @@
             // Setup navigation buttons
             const prevWeekBtn = document.getElementById('prev-week');
             const nextWeekBtn = document.getElementById('next-week');
+            const refreshBtn = document.getElementById('refresh-btn');
             
             if (prevWeekBtn) {
                 prevWeekBtn.addEventListener('click', function() {
@@ -409,11 +497,17 @@
                 });
             }
             
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    loadDataFromAPI();
+                });
+            }
+            
             // Initial data load
             loadDataFromAPI();
             
             // Start the automatic cycling between current and next week
-            cycleThroughWeeks();
+            setTimeout(cycleThroughWeeks, 2000);
             
             // Refresh data periodically
             setInterval(loadDataFromAPI, 30000); // Every 30 seconds
