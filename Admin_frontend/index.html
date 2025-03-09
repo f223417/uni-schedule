@@ -50,6 +50,9 @@
         // Track the currently viewed week and current week separately
         let viewingWeek = 1;
         let currentWeek = 1;
+        
+        // Flag to track if user has manually navigated
+        let weekNavigated = false;
 
         function updateDateTime() {
             const now = new Date();
@@ -73,8 +76,9 @@
             document.getElementById('week-number').textContent = weekNumber;
             currentWeek = weekNumber;
             
-            // Set display week if it hasn't been set yet
-            if (!document.getElementById('display-week').textContent) {
+            // Only set viewing week to current week when the page first loads
+            if (!window.weekNavigated) {
+                viewingWeek = currentWeek;
                 document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
             }
             
@@ -108,11 +112,10 @@
             }
         }
 
-        // Update the timetable function in your index.html file
+        // Update the timetable function
         function updateTimetable() {
             console.log('Updating timetable for week', viewingWeek);
             const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
-            console.log('Total entries loaded:', timetableEntries.length); // Debug log
             
             const table = document.getElementById('timetable-entries');
             if (!table) {
@@ -121,61 +124,41 @@
             }
             table.innerHTML = ''; // Clear existing entries
             
-            // SIMPLIFIED WEEK MATCHING: This is the key fix
-            const formattedViewingWeek = `Week ${viewingWeek}`;
-            console.log('Looking for entries matching:', formattedViewingWeek);
-            
-            // Filter entries for the current viewing week with more lenient matching
+            // Filter entries for the current viewing week
             const currentWeekEntries = timetableEntries.filter(entry => {
-                if (!entry.week && entry.week !== 0) {
-                    return false; // Skip entries without week information
-                }
+                if (!entry.week) return false;
                 
                 const entryWeek = String(entry.week).trim();
+                const targetWeek = `Week ${viewingWeek}`;
                 
-                // Debug each entry's week
-                console.log(`Entry week: "${entryWeek}" - Comparing with "${formattedViewingWeek}" or "${viewingWeek}"`);
-                
-                // More lenient matching - check different formats
-                return (
-                    entryWeek === String(viewingWeek) ||                      // "1" === "1"
-                    entryWeek === formattedViewingWeek ||                     // "Week 1" === "Week 1"
-                    entryWeek.toLowerCase() === formattedViewingWeek.toLowerCase() || // case insensitive
-                    entryWeek.includes(String(viewingWeek)) ||                // "Week 1 (Fall)" includes "1"
-                    entryWeek.toLowerCase().includes(`week ${viewingWeek}`.toLowerCase()) // "Week 1" in any case
-                );
+                return entryWeek === targetWeek || 
+                       entryWeek === String(viewingWeek) ||
+                       entryWeek.toLowerCase() === targetWeek.toLowerCase();
             });
             
-            console.log('FOUND ENTRIES:', currentWeekEntries.length);
-            currentWeekEntries.forEach(e => console.log(' - Entry:', e.course, e.days, e.startTime));
-            
-            // Rest of your updateTimetable function remains the same...
-            
-            // Continue with the existing code for creating the table
             // Determine which days have entries for this week
             const activeDays = new Set();
             currentWeekEntries.forEach(entry => {
-                // Handle both array and string days
-                if (entry.days) {
-                    if (Array.isArray(entry.days)) {
-                        entry.days.forEach(day => activeDays.add(day));
-                    } else if (typeof entry.days === 'string') {
-                        activeDays.add(entry.days);
-                    }
+                if (entry.days && Array.isArray(entry.days)) {
+                    entry.days.forEach(day => activeDays.add(day));
+                } else if (entry.days) {
+                    activeDays.add(entry.days);
                 } else if (entry.day) {
                     activeDays.add(entry.day);
                 }
             });
             
-            console.log('Active days detected:', Array.from(activeDays)); // Debug log
-            
-            // Always show Monday-Friday
+            // Define the default weekdays to always show (Mon-Fri)
             const defaultWeekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-            const daysToDisplay = [...defaultWeekdays];
             
-            // Add weekend days if they have entries
-            if (activeDays.has("Saturday")) daysToDisplay.push("Saturday");
-            if (activeDays.has("Sunday")) daysToDisplay.push("Sunday");
+            // Check if weekend days have entries
+            const showSaturday = activeDays.has("Saturday");
+            const showSunday = activeDays.has("Sunday");
+            
+            // Create list of days to display
+            const daysToDisplay = [...defaultWeekdays];
+            if (showSaturday) daysToDisplay.push("Saturday");
+            if (showSunday) daysToDisplay.push("Sunday");
             
             // Create header row
             const headerRow = document.createElement('tr');
@@ -197,38 +180,81 @@
             // Get unique time slots from entries
             const customTimeSlots = [];
             currentWeekEntries.forEach(entry => {
-                // Skip entries without time information
                 if (!entry.startTime || !entry.endTime) return;
                 
-                // Add time slot if not already in the list
                 if (!customTimeSlots.some(slot => slot.start === entry.startTime && slot.end === entry.endTime)) {
                     customTimeSlots.push({
                         start: entry.startTime,
                         end: entry.endTime,
-                        display: entry.displayTime || `${formatTimeToAMPM(entry.startTime)} - ${formatTimeToAMPM(entry.endTime)}`
+                        display: `${formatTimeToAMPM(entry.startTime)} - ${formatTimeToAMPM(entry.endTime)}`
                     });
                 }
             });
             
-            console.log('Custom time slots:', customTimeSlots.length); // Debug log
-            
-            // Sort time slots by start time
+            // Sort custom time slots by start time if they exist
             if (customTimeSlots.length > 0) {
-                customTimeSlots.sort((a, b) => {
-                    // Simple string comparison for time
-                    return a.start.localeCompare(b.start);
-                });
+                customTimeSlots.sort((a, b) => a.start.localeCompare(b.start));
                 
                 // Create rows for each time slot
-                customTimeSlots.forEach(timeSlot => createTimeSlotRow(timeSlot, daysToDisplay, currentWeekEntries));
+                customTimeSlots.forEach(timeSlot => {
+                    const row = document.createElement('tr');
+                    
+                    // Time cell
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = timeSlot.display;
+                    timeCell.className = 'time-cell';
+                    row.appendChild(timeCell);
+                    
+                    // Create cells for each day
+                    daysToDisplay.forEach(day => {
+                        const cell = document.createElement('td');
+                        
+                        // Find entries for this day and time slot
+                        const dayEntries = currentWeekEntries.filter(entry => {
+                            // Check if entry day matches
+                            let dayMatch = false;
+                            if (Array.isArray(entry.days)) {
+                                dayMatch = entry.days.includes(day);
+                            } else if (typeof entry.days === 'string') {
+                                dayMatch = entry.days === day;
+                            } else if (entry.day) {
+                                dayMatch = entry.day === day;
+                            }
+                            
+                            // Check if time slot matches
+                            const timeMatch = entry.startTime === timeSlot.start && entry.endTime === timeSlot.end;
+                            
+                            return dayMatch && timeMatch;
+                        });
+                        
+                        // Add content to cell if entries found
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+                            
+                            // Generate entry content
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+                            
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+                            
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+                            
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+                        
+                        row.appendChild(cell);
+                    });
+                    
+                    table.appendChild(row);
+                });
             } else {
-                // If no entries have time slots, show default empty timetable
-                const timeSlotList = timeSlots || [
-                    "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
-                    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
-                ];
-                
-                timeSlotList.forEach(time => {
+                // Use default time slots if no entries found
+                timeSlots.forEach(time => {
                     const row = document.createElement('tr');
                     
                     // Time cell
@@ -246,66 +272,6 @@
                     table.appendChild(row);
                 });
             }
-            
-            // Helper function to create a row for a time slot
-            function createTimeSlotRow(timeSlot, days, entries) {
-                const row = document.createElement('tr');
-                
-                // Add time slot in the first cell
-                const timeCell = document.createElement('td');
-                timeCell.textContent = timeSlot.display;
-                timeCell.className = 'time-cell';
-                row.appendChild(timeCell);
-                
-                // Add cells for each day
-                days.forEach(day => {
-                    const cell = document.createElement('td');
-                    
-                    // Find entries for this day and time slot
-                    const dayEntries = entries.filter(entry => {
-                        // Check if entry has days and they include this day
-                        let dayMatch = false;
-                        if (Array.isArray(entry.days)) {
-                            dayMatch = entry.days.includes(day);
-                        } else if (typeof entry.days === 'string') {
-                            dayMatch = entry.days === day;
-                        } else if (entry.day) {
-                            dayMatch = entry.day === day;
-                        }
-                        
-                        // Check if time slot matches
-                        const timeMatch = entry.startTime === timeSlot.start && entry.endTime === timeSlot.end;
-                        
-                        return dayMatch && timeMatch;
-                    });
-                    
-                    console.log(`Found ${dayEntries.length} entries for ${day} at ${timeSlot.display}`); // Debug
-                    
-                    // Add content to cell if there are entries
-                    dayEntries.forEach(entry => {
-                        const entryDiv = document.createElement('div');
-                        entryDiv.className = 'class-entry';
-                        
-                        // Use more robust content generation
-                        let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
-                        
-                        if (entry.venue) {
-                            entryContent += `<p class="venue">${entry.venue}</p>`;
-                        }
-                        
-                        if (entry.teacher) {
-                            entryContent += `<p class="teacher">${entry.teacher}</p>`;
-                        }
-                        
-                        entryDiv.innerHTML = entryContent;
-                        cell.appendChild(entryDiv);
-                    });
-                    
-                    row.appendChild(cell);
-                });
-                
-                table.appendChild(row);
-            }
         }
 
         function updateAnnouncements() {
@@ -313,33 +279,18 @@
             const announcementContainer = document.getElementById('announcement-entries');
             announcementContainer.innerHTML = ''; // Clear existing entries
             
-            // Get current date for comparing
-            const now = new Date();
-            
-            // Filter out expired announcements
-            const activeAnnouncements = announcements.filter(entry => {
-                const expiryDate = new Date(entry.expiryDate);
-                return expiryDate >= now;
-            });
-            
-            if (activeAnnouncements.length === 0) {
+            if (announcements.length === 0) {
                 announcementContainer.innerHTML = '<p>No active announcements</p>';
                 return;
             }
             
-            activeAnnouncements.forEach(entry => {
+            announcements.forEach(entry => {
                 const entryDiv = document.createElement('div');
                 entryDiv.className = 'announcement';
-                
-                // Calculate remaining days
-                const expiryDate = new Date(entry.expiryDate);
-                const diffTime = Math.abs(expiryDate - now);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 
                 entryDiv.innerHTML = `
                     <p class="announcement-text">${entry.announcement}</p>
                     <p class="announcement-date">Posted: ${new Date(entry.date).toLocaleDateString()}</p>
-                    <p class="announcement-expiry">Expires in: ${diffDays} day(s)</p>
                     <hr>
                 `;
                 announcementContainer.appendChild(entryDiv);
@@ -362,151 +313,85 @@
             });
         }
 
-        function clearAllEntries() {
-            if (confirm('Are you sure you want to delete all entries? This cannot be undone.')) {
-                localStorage.removeItem('timetableEntries');
-                localStorage.removeItem('announcements');
-                localStorage.removeItem('notices');
-                // Don't remove the startDate to keep the week count intact
-                
-                updateTimetable();
-                updateAnnouncements();
-                updateNotices();
-                
-                alert('All entries have been cleared.');
-            }
-        }
-
-        // Replace your loadDataFromAPI function with this:
+        // Function to load data from API
         function loadDataFromAPI() {
-            console.log('Loading data from API for display...');
-            
-            // Disable buttons during load to prevent interruptions
-            const prevWeekBtn = document.getElementById('prev-week');
-            const nextWeekBtn = document.getElementById('next-week');
-            
-            if (prevWeekBtn) prevWeekBtn.disabled = true;
-            if (nextWeekBtn) nextWeekBtn.disabled = true;
-            
-            // Keep track of completed requests
-            let requestsCompleted = 0;
-            const totalRequests = 3;
-            
-            // Function to enable buttons when all requests are complete
-            function checkIfComplete() {
-                requestsCompleted++;
-                if (requestsCompleted >= totalRequests) {
-                    if (prevWeekBtn) prevWeekBtn.disabled = false;
-                    if (nextWeekBtn) nextWeekBtn.disabled = false;
-                    console.log('All data loaded successfully');
-                }
-            }
+            console.log('Loading data from API...');
             
             // Load timetable data
             fetch('/api/timetable')
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     console.log(`Loaded ${data.length} timetable entries from API`);
-                    if (Array.isArray(data) && data.length > 0) {
-                        // Store in localStorage for offline access
-                        localStorage.setItem('timetableEntries', JSON.stringify(data));
-                        // Update the display
-                        updateTimetable();
-                    } else {
-                        console.warn('Retrieved timetable data was empty or invalid');
-                    }
-                    checkIfComplete();
+                    localStorage.setItem('timetableEntries', JSON.stringify(data));
+                    updateTimetable();
                 })
-                .catch(error => {
-                    console.error('Error loading timetable data:', error);
-                    checkIfComplete();
-                });
+                .catch(error => console.error('Error loading timetable data:', error));
             
-            // Similar changes for announcements and notices fetch calls...
-            // ... (keep the rest of your function as it is)
-            
+            // Load announcements
             fetch('/api/announcements')
                 .then(response => response.json())
                 .then(data => {
                     console.log(`Loaded ${data.length} announcements from API`);
                     localStorage.setItem('announcements', JSON.stringify(data));
                     updateAnnouncements();
-                    checkIfComplete();
                 })
-                .catch(error => {
-                    console.error('Error loading announcements:', error);
-                    checkIfComplete();
-                });
+                .catch(error => console.error('Error loading announcements:', error));
             
+            // Load notices
             fetch('/api/notices')
                 .then(response => response.json())
                 .then(data => {
                     console.log(`Loaded ${data.length} notices from API`);
                     localStorage.setItem('notices', JSON.stringify(data));
                     updateNotices();
-                    checkIfComplete();
                 })
-                .catch(error => {
-                    console.error('Error loading notices:', error);
-                    checkIfComplete();
-                });
-            
-            // Add this in your loadDataFromAPI function after setting the localStorage (around line 377)
-
-            // Debug the loaded data
-            fetch('/api/timetable')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('TIMETABLE DATA LOADED:', data);
-                    console.log('Week formats in data:', [...new Set(data.map(e => e.week))]);
-                    
-                    // Force refresh with the latest data
-                    localStorage.setItem('timetableEntries', JSON.stringify(data));
-                    updateTimetable();
-                    
-                    // Check if entries would match current week
-                    const viewWeek = document.getElementById('display-week').textContent.replace('Week ', '').trim();
-                    const matchingEntries = data.filter(e => 
-                        String(e.week).toLowerCase().includes(String(viewWeek).toLowerCase()) ||
-                        String(e.week).toLowerCase() === `week ${viewWeek}`.toLowerCase()
-                    );
-                    console.log(`Entries matching current week ${viewWeek}:`, matchingEntries);
-                })
-                .catch(err => console.error('Debug fetch error:', err));
+                .catch(error => console.error('Error loading notices:', error));
         }
-
-        // Add this function right after the updateDateTime function
+        
+        // Function to handle week navigation
         function navigateWeek(direction) {
             if (direction === 'next') {
                 viewingWeek++;
+                window.weekNavigated = true;
             } else if (direction === 'prev') {
                 viewingWeek = Math.max(1, viewingWeek - 1);
+                window.weekNavigated = true;
             }
             
-            // Always update the display
             document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-            console.log(`Navigated to week: ${viewingWeek}`);
-            
-            // Update the timetable to show the new week
             updateTimetable();
         }
         
-        // Replace your DOM content loaded event at the bottom
+        // Function to cycle through weeks (current and next)
+        function cycleThroughWeeks() {
+            // If showing current week
+            if (viewingWeek === currentWeek && !window.weekNavigated) {
+                // After 20 seconds, show next week
+                setTimeout(() => {
+                    viewingWeek = currentWeek + 1;
+                    document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                    updateTimetable();
+                    console.log("Showing next week:", viewingWeek);
+                    
+                    // After 10 seconds showing next week, go back to current
+                    setTimeout(() => {
+                        viewingWeek = currentWeek;
+                        document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+                        updateTimetable();
+                        console.log("Back to current week:", viewingWeek);
+                        cycleThroughWeeks(); // Restart the cycle
+                    }, 10000);
+                }, 20000);
+            }
+        }
+
+        // Initialize everything when the page loads
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM content loaded - initializing timetable display');
             
             // Initial setup
             updateDateTime();
-            
-            // IMPORTANT: Set viewingWeek to match currentWeek on load
-            setTimeout(() => {
-                viewingWeek = currentWeek;
-                document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                updateTimetable();
-            }, 500);
+            updateTimetable();
             
             // Setup navigation buttons
             const prevWeekBtn = document.getElementById('prev-week');
@@ -524,12 +409,14 @@
                 });
             }
             
-            // Initial data load from API
+            // Initial data load
             loadDataFromAPI();
             
-            // Use a single, longer interval for refreshing data
-            // Reduced frequency to prevent data loading issues
-            setInterval(loadDataFromAPI, 5 * 60 * 1000); // Every 5 minutes
+            // Start the automatic cycling between current and next week
+            cycleThroughWeeks();
+            
+            // Refresh data periodically
+            setInterval(loadDataFromAPI, 30000); // Every 30 seconds
         });
     </script>
     <script src="index.js"></script>
