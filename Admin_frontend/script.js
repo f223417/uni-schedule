@@ -1,3 +1,4 @@
+
 function displayTimetable() {
     fetch('timetable.json')
         .then(response => response.json())
@@ -28,10 +29,10 @@ function displayAnnouncements() {
         });
 }
 
-// Modified function to remove cycling behavior
+// This is likely what you need to modify in Admin_frontend/script.js
 function startDisplayCycle() {
-    // Just display current timetable once without any cycling
-    displayTimetable();
+    // Just display current timetable once without cycling
+    displayCurrentWeek();
     // No timers or cycling logic
 }
 

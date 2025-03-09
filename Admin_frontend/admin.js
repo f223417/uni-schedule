@@ -1837,7 +1837,6 @@ function debugFormElements() {
 // ======================================================
 // MANAGE STORED DATA
 // ======================================================
-
 function manageSavedData() {
   console.log('Managing saved data...');
   
@@ -2065,6 +2064,7 @@ function manageSavedData() {
     }
   });
 }
+
 // ======================================================
 // INITIALIZATION
 // ======================================================
