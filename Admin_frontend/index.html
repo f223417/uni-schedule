@@ -82,6 +82,32 @@
             setTimeout(updateDateTime, 1000);
         }
 
+        function formatTimeToAMPM(timeStr) {
+            if (!timeStr) return '';
+            
+            // Check if time is already in AM/PM format
+            if (timeStr.includes('AM') || timeStr.includes('PM')) {
+                return timeStr;
+            }
+            
+            try {
+                // Parse 24-hour format like "14:30"
+                const [hours, minutes] = timeStr.split(':').map(num => parseInt(num, 10));
+                
+                if (isNaN(hours) || isNaN(minutes)) {
+                    return timeStr; // Return original if parsing fails
+                }
+                
+                const period = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+                
+                return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+            } catch (e) {
+                console.error('Error formatting time:', e);
+                return timeStr; // Return original on error
+            }
+        }
+
         // Update the timetable function in your index.html file
         function updateTimetable() {
             console.log('Updating timetable for week', viewingWeek);
@@ -95,16 +121,33 @@
             }
             table.innerHTML = ''; // Clear existing entries
             
-            // Filter entries for the current viewing week with better error handling
+            // Filter entries for the current viewing week
             const currentWeekEntries = timetableEntries.filter(entry => {
-                // Make sure we have a week property that's a string
-                const entryWeek = entry.week ? entry.week.toString() : '';
-                const targetWeek = `Week ${viewingWeek}`;
+                // Skip entries without week information
+                if (!entry.week && entry.week !== 0) {
+                    console.log('Entry missing week property:', entry);
+                    return false;
+                }
                 
-                // More robust comparison
-                return entryWeek.includes(viewingWeek.toString()) || 
-                       entryWeek === targetWeek || 
-                       entryWeek === viewingWeek.toString();
+                // Normalize the entry week format
+                const entryWeek = String(entry.week).toLowerCase().trim();
+                const targetWeek = String(viewingWeek).toLowerCase().trim();
+                const targetWeekFormatted = `week ${targetWeek}`.toLowerCase().trim();
+                
+                // Debug
+                console.log(`Comparing entry week "${entryWeek}" with target "${targetWeek}" or "${targetWeekFormatted}"`);
+                
+                // Multiple matching approaches
+                return entryWeek === targetWeek || 
+                       entryWeek === targetWeekFormatted ||
+                       entryWeek.includes(targetWeek) ||
+                       entryWeek.replace(/\s+/g, '') === targetWeekFormatted.replace(/\s+/g, '');
+            });
+            
+            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries);
+            // Log the actual entries for debugging
+            currentWeekEntries.forEach((entry, i) => {
+                console.log(`Entry ${i+1}:`, entry.course, entry.days, `${entry.startTime}-${entry.endTime}`);
             });
             
             console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries.length); // Debug log
@@ -410,6 +453,29 @@
                     console.error('Error loading notices:', error);
                     checkIfComplete();
                 });
+            
+            // Add this in your loadDataFromAPI function after setting the localStorage (around line 377)
+
+            // Debug the loaded data
+            fetch('/api/timetable')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('TIMETABLE DATA LOADED:', data);
+                    console.log('Week formats in data:', [...new Set(data.map(e => e.week))]);
+                    
+                    // Force refresh with the latest data
+                    localStorage.setItem('timetableEntries', JSON.stringify(data));
+                    updateTimetable();
+                    
+                    // Check if entries would match current week
+                    const viewWeek = document.getElementById('display-week').textContent.replace('Week ', '').trim();
+                    const matchingEntries = data.filter(e => 
+                        String(e.week).toLowerCase().includes(String(viewWeek).toLowerCase()) ||
+                        String(e.week).toLowerCase() === `week ${viewWeek}`.toLowerCase()
+                    );
+                    console.log(`Entries matching current week ${viewWeek}:`, matchingEntries);
+                })
+                .catch(err => console.error('Debug fetch error:', err));
         }
 
         // MAIN INITIALIZATION - SINGLE DOMContentLoaded

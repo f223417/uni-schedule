@@ -1575,6 +1575,11 @@ function submitTimetableEntry() {
   
   console.log('Submitting entry:', entry);
   
+  // Normalize week format (add this before sending to API)
+  if (entry.week && !entry.week.toLowerCase().startsWith('week')) {
+    entry.week = `Week ${entry.week}`;
+  }
+  
   // Send to API
   fetch(`${API_BASE_URL}/timetable`, {
     method: 'POST',
