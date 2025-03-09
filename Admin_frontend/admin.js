@@ -942,8 +942,9 @@ function generatePDF() {
     }
   });
   
-  // Helper functions
+  // Helper functions remain the same
   function loadScriptsSequentially(srcs) {
+    // Implementation unchanged
     return srcs.reduce((promise, src) => {
       return promise.then(() => {
         return new Promise((resolve, reject) => {
@@ -990,12 +991,13 @@ function generatePDF() {
     });
   }
   
+  // Updated function to create a calendar layout that matches your example
   function createCalendarLayout(data, debugMode) {
     // Create container
     const container = document.createElement('div');
     container.id = 'pdf-calendar-container-' + Date.now();
     container.className = 'pdf-calendar-container';
-    container.style.width = '1100px';  // Wider to fit the calendar layout
+    container.style.width = '1100px';
     container.style.backgroundColor = 'white';
     container.style.padding = '40px';
     container.style.boxSizing = 'border-box';
@@ -1023,7 +1025,7 @@ function generatePDF() {
       </p>
     `;
     
-    if (!data || data.length === 0) {
+    if (!data || data.length ===.0) {
       const emptyMsg = document.createElement('p');
       emptyMsg.textContent = 'No timetable entries available.';
       emptyMsg.style.textAlign = 'center';
@@ -1049,6 +1051,7 @@ function generatePDF() {
         // Create weekly container
         const weekContainer = document.createElement('div');
         weekContainer.style.marginBottom = '30px';
+        weekContainer.style.pageBreakAfter = 'always'; // Each week on a new page
         
         // Add week title
         const weekTitle = document.createElement('h2');
@@ -1068,50 +1071,65 @@ function generatePDF() {
         table.style.fontSize = '14px';
         table.style.tableLayout = 'fixed';
         
-        // Extract all unique time slots from entries for this week
-        let timeSlots = [];
+        // Merge time slots from all entries for this week
+        let allTimeSlots = {};
         weekEntries.forEach(entry => {
-          if (entry.startTime && !timeSlots.includes(entry.startTime)) {
-            timeSlots.push(entry.startTime);
+          if (entry.startTime && entry.endTime) {
+            const timeSlotKey = `${entry.startTime} - ${entry.endTime}`;
+            allTimeSlots[timeSlotKey] = true;
           }
         });
+        
+        // Convert to array and sort
+        let timeSlots = Object.keys(allTimeSlots);
         
         // If no time slots found, use default slots
         if (timeSlots.length === 0) {
           timeSlots = [
-            '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
-            '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'
+            '8:00 AM - 9:00 AM',
+            '9:00 AM - 10:00 AM',
+            '10:00 AM - 11:00 AM',
+            '11:00 AM - 12:00 PM',
+            '12:00 PM - 1:00 PM',
+            '1:00 PM - 2:00 PM',
+            '2:00 PM - 3:00 PM',
+            '3:00 PM - 4:00 PM',
+            '4:00 PM - 5:00 PM'
           ];
+        } else {
+          // Sort time slots
+          timeSlots.sort((a, b) => {
+            const timeA = a.split(' - ')[0];
+            const timeB = b.split(' - ')[0];
+            return new Date('1/1/2023 ' + timeA) - new Date('1/1/2023 ' + timeB);
+          });
         }
-        
-        // Sort time slots
-        timeSlots.sort((a, b) => {
-          return new Date('1/1/2023 ' + a) - new Date('1/1/2023 ' + b);
-        });
         
         // Create table header with days
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         const headerRow = document.createElement('tr');
+        headerRow.style.backgroundColor = '#4a90e2';
+        headerRow.style.color = 'white';
         
-        // Add empty corner cell
-        const cornerCell = document.createElement('th');
-        cornerCell.textContent = 'Time / Day';
-        cornerCell.style.border = '1px solid #ddd';
-        cornerCell.style.padding = '10px';
-        cornerCell.style.backgroundColor = '#4a90e2';
-        cornerCell.style.color = 'white';
-        cornerCell.style.fontWeight = 'bold';
-        headerRow.appendChild(cornerCell);
+        // Add time header
+        const timeHeader = document.createElement('th');
+        timeHeader.textContent = 'Time';
+        timeHeader.style.padding = '10px';
+        timeHeader.style.border = '1px solid #ddd';
+        timeHeader.style.fontWeight = 'bold';
+        timeHeader.style.textAlign = 'center';
+        timeHeader.style.width = '20%';
+        headerRow.appendChild(timeHeader);
         
         // Add day headers
         days.forEach(day => {
           const dayHeader = document.createElement('th');
           dayHeader.textContent = day;
-          dayHeader.style.border = '1px solid #ddd';
           dayHeader.style.padding = '10px';
-          dayHeader.style.backgroundColor = '#4a90e2';
-          dayHeader.style.color = 'white';
+          dayHeader.style.border = '1px solid #ddd';
           dayHeader.style.fontWeight = 'bold';
+          dayHeader.style.textAlign = 'center';
+          dayHeader.style.width = '16%';
           headerRow.appendChild(dayHeader);
         });
         
@@ -1130,19 +1148,21 @@ function generatePDF() {
           // Add time slot cell
           const timeCell = document.createElement('td');
           timeCell.textContent = timeSlot;
-          timeCell.style.border = '1px solid #ddd';
           timeCell.style.padding = '10px';
+          timeCell.style.border = '1px solid #ddd';
           timeCell.style.fontWeight = 'bold';
+          timeCell.style.textAlign = 'center';
           timeCell.style.verticalAlign = 'top';
           row.appendChild(timeCell);
           
           // Add cells for each day
           days.forEach(day => {
             const dayCell = document.createElement('td');
+            dayCell.style.padding = '10px';
             dayCell.style.border = '1px solid #ddd';
-            dayCell.style.padding = '8px';
             dayCell.style.verticalAlign = 'top';
-            dayCell.style.height = '80px';
+            dayCell.style.height = '60px';
+            dayCell.style.textAlign = 'center';
             
             // Find entries for this day and time slot
             const entries = weekEntries.filter(entry => {
@@ -1151,7 +1171,8 @@ function generatePDF() {
               const isDayMatch = entryDays.some(d => d === day);
               
               // Check if entry time matches
-              const isTimeMatch = entry.startTime === timeSlot;
+              const entryTimeSlot = `${entry.startTime} - ${entry.endTime}`;
+              const isTimeMatch = entryTimeSlot === timeSlot;
               
               return isDayMatch && isTimeMatch;
             });
@@ -1159,24 +1180,26 @@ function generatePDF() {
             // If entries found, add them to the cell
             if (entries.length > 0) {
               entries.forEach(entry => {
-                const entryDiv = document.createElement('div');
-                entryDiv.style.backgroundColor = '#e6f7ff';
-                entryDiv.style.borderLeft = '4px solid #4a90e2';
-                entryDiv.style.padding = '8px';
-                entryDiv.style.marginBottom = '4px';
-                entryDiv.style.borderRadius = '3px';
+                // Create a simple centered cell content without a box
+                const courseDiv = document.createElement('div');
+                courseDiv.style.marginBottom = '5px';
+                courseDiv.style.fontWeight = 'bold';
+                courseDiv.textContent = entry.course || '';
+                dayCell.appendChild(courseDiv);
                 
-                // Create styled content
-                entryDiv.innerHTML = `
-                  <div style="font-weight:bold; margin-bottom:3px;">${entry.course || 'Unknown Course'}</div>
-                  <div style="font-size:12px; color:#555;">
-                    ${entry.teacher ? `<div>${entry.teacher}</div>` : ''}
-                    ${entry.venue ? `<div>${entry.venue}</div>` : ''}
-                    ${entry.startTime && entry.endTime ? `<div>${entry.startTime} - ${entry.endTime}</div>` : ''}
-                  </div>
-                `;
+                if (entry.teacher) {
+                  const teacherDiv = document.createElement('div');
+                  teacherDiv.style.fontSize = '12px';
+                  teacherDiv.textContent = entry.teacher;
+                  dayCell.appendChild(teacherDiv);
+                }
                 
-                dayCell.appendChild(entryDiv);
+                if (entry.venue) {
+                  const venueDiv = document.createElement('div');
+                  venueDiv.style.fontSize = '12px';
+                  venueDiv.textContent = entry.venue;
+                  dayCell.appendChild(venueDiv);
+                }
               });
             }
             
