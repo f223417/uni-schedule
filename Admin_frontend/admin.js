@@ -290,6 +290,7 @@ document.getElementById('timetable-form').addEventListener('submit', function(ev
 });
 
 function updateTimetable() {
+    const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
     fetch(`${API_BASE_URL}/timetable`)
         .then(response => response.json())
         .then(timetableEntries => {
@@ -1299,11 +1300,8 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Admin page loaded - fetching all data');
     loadAllData();
     
-    // Set up event listeners for tab switching
-    setupTabNavigation();
-    
-    // Set up form event listeners
-    setupFormEventListeners();
+    // Set up form submission handlers
+    setupFormHandlers();
 });
 
 // Add this function to load everything

@@ -371,6 +371,61 @@
                 forceReloadAllData();
             }, 10000); // Every 10 seconds
         });
+
+        // THESE ARE THE MISSING FUNCTIONS YOU NEED TO ADD TO INDEX.HTML
+        function setupIndexPageSync() {
+            console.log('Setting up index page data sync system...');
+            
+            // Check for data updates very frequently
+            setInterval(checkForDataChanges, 500); // Check every 500ms
+            
+            // Setup storage event listener (this fires when another tab changes localStorage)
+            window.addEventListener('storage', function(event) {
+                console.log('Storage event detected:', event.key);
+                if (event.key === 'timetableEntries' || 
+                    event.key === 'announcements' || 
+                    event.key === 'notices' ||
+                    event.key === 'forceReload') {
+                    console.log('Relevant data changed, updating display...');
+                    updateAllData();
+                }
+            });
+        }
+
+        // Global timestamp to track forced reloads
+        let lastForceReloadTimestamp = 0;
+
+        function checkForDataChanges() {
+            // Check if a force reload was requested
+            const forceReload = localStorage.getItem('forceReload');
+            if (forceReload && parseInt(forceReload) > lastForceReloadTimestamp) {
+                console.log('Force reload detected with timestamp:', forceReload);
+                lastForceReloadTimestamp = parseInt(forceReload);
+                updateAllData();
+                return;
+            }
+        }
+
+        function updateAllData() {
+            console.log('Updating all data from localStorage...');
+            
+            // Always reload from localStorage (bypassing any cached variables)
+            updateTimetable();
+            updateAnnouncements();
+            updateNotices();
+        }
+
+        function forceReloadAllData() {
+            console.log('Forcing complete data reload...');
+            
+            // Clear any runtime caches
+            window.timetableCache = null;
+            window.announcementsCache = null;
+            window.noticesCache = null;
+            
+            // Update the UI from localStorage
+            updateAllData();
+        }
     </script>
     <script src="index.js"></script>
 </body>
