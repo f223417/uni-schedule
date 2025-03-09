@@ -468,138 +468,189 @@ if (button) {
 
 console.log('Clearing all entries via API...');
 
-// Try multiple endpoint patterns for each data type
-const clearTimetable = () => {
-    return fetch(`${API_BASE_URL}/timetable/clear?_nocache=${Date.now()}`, { 
-        method: 'DELETE',
-        headers: { 'Cache-Control': 'no-cache, no-store' }
-    })
-    .catch(() => fetch(`${API_BASE_URL}/timetable/all?_nocache=${Date.now()}`, { method: 'DELETE' }))
-    .catch(() => fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, { method: 'DELETE' }));
-};
+// Use both API and localStorage clearing to ensure complete removal
 
-const clearAnnouncements = () => {
-    return fetch(`${API_BASE_URL}/announcements/clear?_nocache=${Date.now()}`, { 
-        method: 'DELETE',
-        headers: { 'Cache-Control': 'no-cache, no-store' }
-    })
-    .catch(() => fetch(`${API_BASE_URL}/announcements/all?_nocache=${Date.now()}`, { method: 'DELETE' }))
-    .catch(() => fetch(`${API_BASE_URL}/announcements?_nocache=${Date.now()}`, { method: 'DELETE' }));
-};
-
-const clearNotices = () => {
-    return fetch(`${API_BASE_URL}/notices/clear?_nocache=${Date.now()}`, { 
-        method: 'DELETE',
-        headers: { 'Cache-Control': 'no-cache, no-store' }
-    })
-    .catch(() => fetch(`${API_BASE_URL}/notices/all?_nocache=${Date.now()}`, { method: 'DELETE' }))
-    .catch(() => fetch(`${API_BASE_URL}/notices?_nocache=${Date.now()}`, { method: 'DELETE' }));
-};
-
-// Execute all clear operations in sequence
-clearTimetable()
-    .then(() => clearAnnouncements())
-    .then(() => clearNotices())
-    .then(() => {
-        console.log('All entries cleared successfully');
-        
-        // Force cache invalidation for index pages
-        localStorage.setItem('forceDataReload', Date.now().toString());
-        localStorage.setItem('clearCache', 'true');
-        
-        // Reload all data with cache bypass
-        clearAndReloadTimetable();
-        clearAndReloadAnnouncements();
-        clearAndReloadNotices();
-        
-        alert('All entries cleared successfully!');
-    })
-    .catch(error => {
-        console.error('Error clearing entries:', error);
-        alert('Error clearing entries. Please try again.');
-    })
-    .finally(() => {
-        // Reset button state
-        if (button) {
-            button.textContent = originalText;
-            button.disabled = false;
-        }
+// Step 1: Clear data via API with multiple fallbacks
+Promise.all([
+  // Clear timetable entries
+  fetch(`${API_BASE_URL}/timetable/clear?_nocache=${Date.now()}`, { 
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store'
+    }
+  }).catch(() => fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' }))
+    .catch(() => fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' })),
+  
+  // Clear announcements
+  fetch(`${API_BASE_URL}/announcements/clear?_nocache=${Date.now()}`, { 
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store'
+    }
+  }).catch(() => fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' }))
+    .catch(() => fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' })),
+  
+  // Clear notices
+  fetch(`${API_BASE_URL}/notices/clear?_nocache=${Date.now()}`, { 
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store'
+    }
+  }).catch(() => fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' }))
+    .catch(() => fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' }))
+])
+.then(() => {
+  console.log('API Clear completed, now syncing with localStorage');
+  
+  // Step 2: Also clear localStorage to ensure index page is updated
+  localStorage.removeItem('timetableEntries');
+  localStorage.removeItem('cachedTimetableData');
+  localStorage.removeItem('announcements');
+  localStorage.removeItem('notices');
+  localStorage.removeItem('timetableCache');
+  localStorage.removeItem('announcementsCache');
+  localStorage.removeItem('noticesCache');
+  
+  // Step 3: Set markers for other pages to know data was cleared
+  const timestamp = Date.now().toString();
+  localStorage.setItem('forceDataReload', timestamp);
+  localStorage.setItem('clearCache', 'true');
+  localStorage.setItem('timetableUpdated', timestamp);
+  localStorage.setItem('announcementsUpdated', timestamp);
+  localStorage.setItem('noticesUpdated', timestamp);
+  
+  // Step 4: Reload our own display with force cache bypass
+  clearAndReloadTimetable();
+  clearAndReloadAnnouncements();
+  clearAndReloadNotices();
+  
+  // Step 5: Broadcast a message to other windows/tabs
+  try {
+    const bc = new BroadcastChannel('uni_schedule_updates');
+    bc.postMessage({ 
+      type: 'all-data-cleared',
+      timestamp: timestamp
     });
+    bc.close();
+  } catch(e) {
+    console.log('BroadcastChannel not supported');
+  }
+  
+  alert('All entries cleared successfully!');
+})
+.catch(error => {
+  console.error('Error clearing entries:', error);
+  alert('Error clearing entries. Please try again.');
+})
+.finally(() => {
+  if (button) {
+    button.textContent = originalText;
+    button.disabled = false;
+  }
+});
 }
-function clearAndReloadTimetable() { /* your implementation */ 
+// Enhanced clearAndReloadTimetable function
+function clearAndReloadTimetable() {
   console.log("FORCE RELOADING TIMETABLE WITH CACHE BYPASS");
-    
-    // Clear any cached data
-    localStorage.removeItem('timetableCache');
-    
-    fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
-        headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-        }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        console.log(`RELOADED ${data.length} timetable entries`);
-        displayTimetableEntries(data);
-    })
-    .catch(error => {
-        console.error('Error loading timetable entries:', error);
-        displayTimetableEntries([]);
-    });
+  
+  // Clear cached data
+  localStorage.removeItem('timetableCache');
+  localStorage.removeItem('cachedTimetableData');
+  localStorage.removeItem('timetableEntries');
+  
+  // First directly clear the display to provide immediate feedback
+  displayTimetableEntries([]);
+  
+  // Then try to fetch fresh data from API
+  fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    console.log(`RELOADED ${data.length} timetable entries`);
+    displayTimetableEntries(data);
+  })
+  .catch(error => {
+    console.error('Error loading timetable entries:', error);
+    // Keep the empty display if there's an error
+    displayTimetableEntries([]);
+  });
 }
-function clearAndReloadAnnouncements() { /* your implementation */ 
+
+// Enhanced clearAndReloadAnnouncements function
+function clearAndReloadAnnouncements() {
   console.log("FORCE RELOADING ANNOUNCEMENTS WITH CACHE BYPASS");
-    
-    // Clear any cached data
-    localStorage.removeItem('announcementsCache');
-    
-    fetch(`${API_BASE_URL}/announcements?_nocache=${Date.now()}`, {
-        headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-        }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        console.log(`RELOADED ${data.length} announcements`);
-        displayAnnouncements(data);
-    })
-    .catch(error => {
-        console.error('Error loading announcements:', error);
-        displayAnnouncements([]);
-    });
+  
+  // Clear cached data
+  localStorage.removeItem('announcementsCache');
+  localStorage.removeItem('announcements');
+  
+  // First directly clear the display
+  displayAnnouncements([]);
+  
+  // Then try to fetch fresh data
+  fetch(`${API_BASE_URL}/announcements?_nocache=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    console.log(`RELOADED ${data.length} announcements`);
+    displayAnnouncements(data);
+  })
+  .catch(error => {
+    console.error('Error loading announcements:', error);
+    displayAnnouncements([]);
+  });
 }
-function clearAndReloadNotices() { /* your implementation */ 
+
+// Enhanced clearAndReloadNotices function
+function clearAndReloadNotices() {
   console.log("FORCE RELOADING NOTICES WITH CACHE BYPASS");
-    
-    // Clear any cached data
-    localStorage.removeItem('noticesCache');
-    
-    fetch(`${API_BASE_URL}/notices?_nocache=${Date.now()}`, {
-        headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-        }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        console.log(`RELOADED ${data.length} notices`);
-        displayNotices(data);
-    })
-    .catch(error => {
-        console.error('Error loading notices:', error);
-        displayNotices([]);
-    });
+  
+  // Clear cached data
+  localStorage.removeItem('noticesCache');
+  localStorage.removeItem('notices');
+  
+  // First directly clear the display
+  displayNotices([]);
+  
+  // Then try to fetch fresh data
+  fetch(`${API_BASE_URL}/notices?_nocache=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    console.log(`RELOADED ${data.length} notices`);
+    displayNotices(data);
+  })
+  .catch(error => {
+    console.error('Error loading notices:', error);
+    displayNotices([]);
+  });
 }
 
 // ======================================================
@@ -794,21 +845,25 @@ function setupUserInfo() { /* your implementation */
     });
   }
 }
-function setupClearAllButton() { /* your implementation */ 
+// Enhanced setupClearAllButton function
+function setupClearAllButton() {
   console.log('Setting up Clear All button...');
   
   const clearAllBtn = document.getElementById('clear-all');
   if (clearAllBtn) {
-    // Remove any existing handlers by cloning
+    // First remove any existing event listeners by cloning
     const newBtn = clearAllBtn.cloneNode(true);
     if (clearAllBtn.parentNode) {
       clearAllBtn.parentNode.replaceChild(newBtn, clearAllBtn);
     }
     
-    // Add event listener to the new button
-    newBtn.addEventListener('click', clearAllEntries);
+    // Add our new event listener
+    newBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      clearAllEntries(event);
+    });
     
-    // Remove inline onclick attribute if it exists
+    // Remove any inline onclick attribute
     newBtn.removeAttribute('onclick');
     
     console.log('Clear All button handler attached');
