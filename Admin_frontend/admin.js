@@ -1867,28 +1867,31 @@ function manageSavedData() {
   // Create modal content
   const modal = document.createElement('div');
   modal.className = 'modal';
-  modal.style.width = '80%';
-  modal.style.maxWidth = '800px';
-  modal.style.maxHeight = '80vh';
   modal.style.backgroundColor = 'white';
-  modal.style.borderRadius = '8px';
   modal.style.padding = '20px';
+  modal.style.borderRadius = '8px';
+  modal.style.width = '80%';
+  modal.style.maxHeight = '80%';
   modal.style.overflowY = 'auto';
   
-  // Add title and close button
+  // Create modal header
   const header = document.createElement('div');
   header.style.display = 'flex';
   header.style.justifyContent = 'space-between';
+  header.style.alignItems = 'center';
   header.style.marginBottom = '20px';
   
   const title = document.createElement('h2');
   title.textContent = 'Manage Saved Data';
+  title.style.margin = '0';
   
   const closeButton = document.createElement('button');
-  closeButton.textContent = '×';
-  closeButton.style.background = 'none';
+  closeButton.textContent = 'CLOSE';
+  closeButton.style.padding = '8px 16px';
+  closeButton.style.backgroundColor = '#d9534f';
+  closeButton.style.color = 'white';
   closeButton.style.border = 'none';
-  closeButton.style.fontSize = '24px';
+  closeButton.style.borderRadius = '4px';
   closeButton.style.cursor = 'pointer';
   closeButton.onclick = function() {
     document.body.removeChild(modalContainer);
@@ -1901,28 +1904,28 @@ function manageSavedData() {
   // Helper function to create data section
   function createDataSection(title, data, storageKey) {
     const section = document.createElement('div');
-    section.style.marginBottom = '30px';
+    section.style.marginBottom = '20px';
     
     const sectionTitle = document.createElement('h3');
     sectionTitle.textContent = title;
+    sectionTitle.style.marginBottom = '10px';
     section.appendChild(sectionTitle);
     
-    // Add form for adding new items
-    const addForm = document.createElement('div');
-    addForm.style.marginBottom = '15px';
+    const addForm = document.createElement('form');
     addForm.style.display = 'flex';
-    addForm.style.gap = '10px';
+    addForm.style.marginBottom = '10px';
     
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = `Add new ${title.toLowerCase()}...`;
     input.style.flex = '1';
     input.style.padding = '8px';
+    input.style.marginRight = '10px';
     
     const addButton = document.createElement('button');
-    addButton.textContent = 'Add';
-    addButton.style.padding = '8px 15px';
-    addButton.style.backgroundColor = '#4CAF50';
+    addButton.textContent = 'ADD';
+    addButton.style.padding = '8px 16px';
+    addButton.style.backgroundColor = '#5bc0de';
     addButton.style.color = 'white';
     addButton.style.border = 'none';
     addButton.style.borderRadius = '4px';
@@ -1932,7 +1935,7 @@ function manageSavedData() {
     const dataList = document.createElement('div');
     dataList.className = 'data-list';
     dataList.style.display = 'flex';
-    dataList.style.flexWrap = 'wrap';
+    dataList.style.flexDirection = 'column';
     dataList.style.gap = '10px';
     
     // Function for refreshing the data display
@@ -1956,22 +1959,18 @@ function manageSavedData() {
           
           const itemText = document.createElement('span');
           itemText.textContent = item;
-          itemText.style.marginRight = '10px';
+          itemText.style.flex = '1';
           
           const deleteBtn = document.createElement('button');
-          deleteBtn.textContent = '×';
+          deleteBtn.textContent = 'DELETE';
           deleteBtn.style.background = 'none';
           deleteBtn.style.border = 'none';
+          deleteBtn.style.color = '#d9534f';
           deleteBtn.style.cursor = 'pointer';
-          deleteBtn.style.color = '#ff5555';
-          deleteBtn.style.fontSize = '18px';
           deleteBtn.onclick = function() {
             data.splice(index, 1);
             localStorage.setItem(storageKey, JSON.stringify(data));
             refreshDataDisplay();
-            
-            // Also update form datalists
-            loadSavedValues();
           };
           
           itemEl.appendChild(itemText);
@@ -1982,7 +1981,8 @@ function manageSavedData() {
     }
     
     // Initialize add button functionality
-    addButton.onclick = function() {
+    addButton.onclick = function(event) {
+      event.preventDefault();
       if (input.value.trim()) {
         // Add new item if it doesn't exist
         if (!data.includes(input.value.trim())) {
@@ -2000,8 +2000,6 @@ function manageSavedData() {
     addForm.appendChild(input);
     addForm.appendChild(addButton);
     section.appendChild(addForm);
-    
-    refreshDataDisplay();
     section.appendChild(dataList);
     
     // Add export/import buttons
@@ -2011,7 +2009,7 @@ function manageSavedData() {
     actionButtons.style.gap = '10px';
     
     const exportBtn = document.createElement('button');
-    exportBtn.textContent = `Export ${title}`;
+    exportBtn.textContent = `EXPORT ${title.toUpperCase()}`;
     exportBtn.style.padding = '5px 10px';
     exportBtn.onclick = function() {
       const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
@@ -2023,33 +2021,22 @@ function manageSavedData() {
       URL.revokeObjectURL(url);
     };
     
-    actionButtons.appendChild(exportBtn);
-    
-    // Clear button
     const clearBtn = document.createElement('button');
-    clearBtn.textContent = `Clear ${title}`;
+    clearBtn.textContent = `CLEAR ${title.toUpperCase()}`;
     clearBtn.style.padding = '5px 10px';
-    clearBtn.style.marginLeft = 'auto';
-    clearBtn.style.backgroundColor = '#ff5555';
-    clearBtn.style.color = 'white';
-    clearBtn.style.border = 'none';
-    clearBtn.style.borderRadius = '4px';
-    clearBtn.style.cursor = 'pointer';
-    
     clearBtn.onclick = function() {
       if (confirm(`Are you sure you want to clear all ${title.toLowerCase()}?`)) {
         data.length = 0;
         localStorage.setItem(storageKey, JSON.stringify(data));
         refreshDataDisplay();
-        
-        // Also update form datalists
-        loadSavedValues();
       }
     };
     
+    actionButtons.appendChild(exportBtn);
     actionButtons.appendChild(clearBtn);
     section.appendChild(actionButtons);
     
+    refreshDataDisplay();
     return section;
   }
   
