@@ -28,24 +28,16 @@ function displayAnnouncements() {
         });
 }
 
+// Modified function to remove cycling behavior
 function startDisplayCycle() {
-    let currentWeekIndex = 0;
-    const displayDuration = [20000, 10000]; // 20 seconds for current week, 10 seconds for next week
-
-    function cycleTimetable() {
-        displayTimetable();
-        setTimeout(() => {
-            currentWeekIndex = (currentWeekIndex + 1) % 2; // Toggle between current and next week
-            displayTimetable();
-            setTimeout(cycleTimetable, displayDuration[currentWeekIndex]);
-        }, displayDuration[currentWeekIndex]);
-    }
-
-    cycleTimetable();
+    // Just display current timetable once without any cycling
+    displayTimetable();
+    // No timers or cycling logic
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     displayTimetable();
     displayAnnouncements();
+    // We still call startDisplayCycle but it won't actually cycle
     startDisplayCycle();
 });
