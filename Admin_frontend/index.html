@@ -30,9 +30,7 @@
     <div id="announcement-entries"></div>
     <h2>Notices</h2>
     <div id="notice-entries"></div>
-    <div class="admin-controls">
-       
-    </div>
+    <div class="admin-controls"></div>
     <footer>
         <img src="logo.png" width = 250px alt="University Logo">
         <p>University</p>
@@ -122,10 +120,6 @@
             const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
             console.log('Total entries loaded:', timetableEntries.length);
             
-            // Get all weeks to show EVERYTHING
-            const allWeeks = [...new Set(timetableEntries.map(e => e.week))];
-            console.log('All available weeks:', allWeeks);
-            
             // Get the table element
             const table = document.getElementById('timetable-entries');
             if (!table) {
@@ -134,22 +128,119 @@
             }
             table.innerHTML = ''; // Clear existing entries
             
-            // Add a header to show which week we're displaying
-            const weekHeader = document.createElement('h2');
-            weekHeader.textContent = `Current View: Week ${viewingWeek}`;
-            weekHeader.style.textAlign = 'center';
-            weekHeader.style.marginBottom = '20px';
-            table.parentNode.insertBefore(weekHeader, table);
-
-            // IMPORTANT - SHOW ALL ENTRIES WITHOUT FILTERING
-            // const currentWeekEntries = timetableEntries.filter(entry => ...); 
-            // Use all entries instead of filtering:
-            const currentWeekEntries = timetableEntries;
+            // Create header row
+            const headerRow = document.createElement('tr');
             
-            console.log(`SHOWING ALL ${currentWeekEntries.length} ENTRIES IN TABLE`);
+            // Time column header
+            const timeHeader = document.createElement('th');
+            timeHeader.textContent = "Time";
+            headerRow.appendChild(timeHeader);
             
-            // Rest of the function stays the same...
-            // [...]
+            // Define weekdays
+            const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+            
+            // Add day headers
+            weekdays.forEach(day => {
+                const th = document.createElement('th');
+                th.textContent = day;
+                headerRow.appendChild(th);
+            });
+            
+            table.appendChild(headerRow);
+            
+            // Get unique time slots from entries
+            const customTimeSlots = [];
+            timetableEntries.forEach(entry => {
+                if (!entry.startTime || !entry.endTime) return;
+                
+                if (!customTimeSlots.some(slot => slot.start === entry.startTime && slot.end === entry.endTime)) {
+                    customTimeSlots.push({
+                        start: entry.startTime,
+                        end: entry.endTime,
+                        display: `${formatTimeToAMPM(entry.startTime)} - ${formatTimeToAMPM(entry.endTime)}`
+                    });
+                }
+            });
+            
+            // Sort custom time slots by start time if they exist
+            if (customTimeSlots.length > 0) {
+                customTimeSlots.sort((a, b) => a.start.localeCompare(b.start));
+                
+                // Create rows for each time slot
+                customTimeSlots.forEach(timeSlot => {
+                    const row = document.createElement('tr');
+                    
+                    // Time cell
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = timeSlot.display;
+                    timeCell.className = 'time-cell';
+                    row.appendChild(timeCell);
+                    
+                    // Create cells for each day
+                    weekdays.forEach(day => {
+                        const cell = document.createElement('td');
+                        
+                        // Find entries for this day and time slot
+                        const dayEntries = timetableEntries.filter(entry => {
+                            let dayMatch = false;
+                            if (Array.isArray(entry.days)) {
+                                dayMatch = entry.days.includes(day);
+                            } else if (typeof entry.days === 'string') {
+                                dayMatch = entry.days === day;
+                            } else if (entry.day) {
+                                dayMatch = entry.day === day;
+                            }
+                            
+                            const timeMatch = entry.startTime === timeSlot.start && entry.endTime === timeSlot.end;
+                            
+                            return dayMatch && timeMatch;
+                        });
+                        
+                        // Add content to cell if entries found
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+                            
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+                            
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+                            
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+                            
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+                        
+                        row.appendChild(cell);
+                    });
+                    
+                    table.appendChild(row);
+                });
+            } else {
+                console.log('No time slots found, using default slots');
+                // Use default time slots if no entries found
+                timeSlots.forEach(time => {
+                    const row = document.createElement('tr');
+                    
+                    // Time cell
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = time;
+                    timeCell.className = 'time-cell';
+                    row.appendChild(timeCell);
+                    
+                    // Add empty cells for each day
+                    weekdays.forEach(() => {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    });
+                    
+                    table.appendChild(row);
+                });
+            }
         }
 
         function updateAnnouncements() {
@@ -266,51 +357,6 @@
             updateTimetable();
         }
         
-        // IMPROVED: Function to cycle through weeks with safety checks
-        function cycleThroughWeeks() {
-            // Only cycle if not manually navigated and not loading data
-            if (viewingWeek === currentWeek && !window.weekNavigated && !isDataLoading) {
-                console.log('Starting cycle - current week display');
-                
-                // After 20 seconds, show next week
-                setTimeout(() => {
-                    if (isDataLoading) {
-                        console.log('Data loading in progress, delaying cycle');
-                        cycleThroughWeeks(); // Retry
-                        return;
-                    }
-                    
-                    viewingWeek = currentWeek + 1;
-                    document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                    updateTimetable();
-                    console.log("Showing next week:", viewingWeek);
-                    
-                    // After 10 seconds showing next week, go back to current
-                    setTimeout(() => {
-                        if (isDataLoading) {
-                            console.log('Data loading in progress, delaying cycle');
-                            // Reset to current week and retry
-                            viewingWeek = currentWeek;
-                            document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                            updateTimetable();
-                            cycleThroughWeeks();
-                            return;
-                        }
-                        
-                        viewingWeek = currentWeek;
-                        document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
-                        updateTimetable();
-                        console.log("Back to current week:", viewingWeek);
-                        cycleThroughWeeks(); // Restart the cycle
-                    }, 10000);
-                }, 20000);
-            } else {
-                // If manually navigated, check again in a bit
-                console.log('Skipping cycle - user navigated or data loading');
-                setTimeout(cycleThroughWeeks, 5000);
-            }
-        }
-
         // Initialize everything when the page loads
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM content loaded - initializing timetable display');
