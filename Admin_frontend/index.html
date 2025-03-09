@@ -22,6 +22,10 @@
             <!-- Table content will be generated dynamically -->
         </table>
     </div>
+    <h2>Announcements</h2>
+    <div id="announcement-entries"></div>
+    <h2>Notices</h2>
+    <div id="notice-entries"></div>
     <footer>
         <img src="logo.png" width="250px" alt="University Logo">
         <p>University</p>
@@ -247,6 +251,26 @@
                 .catch(error => {
                     console.error('Error loading timetable data:', error);
                 });
+
+            // Load announcements
+            fetch('/api/announcements')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} announcements from API`);
+                    localStorage.setItem('announcements', JSON.stringify(data));
+                    updateAnnouncements();
+                })
+                .catch(error => console.error('Error loading announcements:', error));
+
+            // Load notices
+            fetch('/api/notices')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} notices from API`);
+                    localStorage.setItem('notices', JSON.stringify(data));
+                    updateNotices();
+                })
+                .catch(error => console.error('Error loading notices:', error));
         }
 
         // Function to handle week navigation
@@ -261,6 +285,47 @@
 
             document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
             updateTimetable();
+        }
+
+        // Function to update announcements display
+        function updateAnnouncements() {
+            const announcements = JSON.parse(localStorage.getItem('announcements')) || [];
+            const announcementContainer = document.getElementById('announcement-entries');
+            announcementContainer.innerHTML = ''; // Clear existing entries
+
+            if (announcements.length === 0) {
+                announcementContainer.innerHTML = '<p>No active announcements</p>';
+                return;
+            }
+
+            announcements.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'announcement';
+
+                entryDiv.innerHTML = `
+                    <p class="announcement-text">${entry.announcement}</p>
+                    <p class="announcement-date">Posted: ${new Date(entry.date).toLocaleDateString()}</p>
+                    <hr>
+                `;
+                announcementContainer.appendChild(entryDiv);
+            });
+        }
+
+        // Function to update notices display
+        function updateNotices() {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const noticeContainer = document.getElementById('notice-entries');
+            noticeContainer.innerHTML = ''; // Clear existing entries
+
+            notices.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.innerHTML = `
+                    <p>Notice: ${entry.notice}</p>
+                    <p>Date: ${new Date(entry.date).toLocaleDateString()}</p>
+                    <hr>
+                `;
+                noticeContainer.appendChild(entryDiv);
+            });
         }
 
         // Initialize everything when the page loads
