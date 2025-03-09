@@ -359,6 +359,18 @@
                 updateTimetable();
             }
         });
+
+        // Add this to the <script> section in your index.html file
+        document.addEventListener('DOMContentLoaded', function() {
+            setupIndexPageSync();
+            forceReloadAllData(); // Initial load
+            
+            // Force reload periodically
+            setInterval(() => {
+                console.log('Periodic refresh - checking for updates');
+                forceReloadAllData();
+            }, 10000); // Every 10 seconds
+        });
     </script>
     <script src="index.js"></script>
 </body>

@@ -2008,69 +2008,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Consolidated delete function for all entry types
-function deleteEntry(type, id, event) {
-  const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
-  if (!id || !button) {
-    console.error('Missing ID or button element for delete operation');
-    return;
-  }
-
-  const itemTypes = {
-    'timetable': 'entry',
-    'announcement': 'announcement',
-    'notice': 'notice'
-  };
-  const itemName = itemTypes[type] || 'item';
-
-  if (confirm(`Are you sure you want to delete this ${itemName}?`)) {
-    const originalText = button.textContent;
-    button.textContent = 'Deleting...';
-    button.disabled = true;
-
-    let endpoint = `${API_BASE_URL}/${type === 'timetable' ? 'timetable' : type === 'announcement' ? 'announcements' : 'notices'}/${id}`;
-    
-    console.log(`Sending DELETE request to: ${endpoint}`);
-
-    fetch(endpoint, { 
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store'
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        return response.text().then(text => {
-          throw new Error(`Server error (${response.status}): ${text || 'No error message'}`);
-        });
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log(`Successfully deleted ${itemName}:`, data);
-      
-      // Force index page to reload data by sending a broadcast event
-      broadcastDataChange();
-      
-      // Reload current view
-      if (type === 'timetable') {
-        loadTimetableEntries(false);
-      } else if (type === 'announcement') {
-        loadAnnouncements(false);
-      } else if (type === 'notice') {
-        loadNotices(false);
-      }
-    })
-    .catch(error => {
-      console.error(`Error deleting ${itemName}:`, error);
-      alert(`Failed to delete ${itemName}. ${error.message}`);
-    })
-    .finally(() => {
-      button.textContent = originalText;
-      button.disabled = false;
-    });
-  }
-}
 
 // Function to broadcast data changes to other pages
 function broadcastDataChange() {
@@ -2319,4 +2256,251 @@ function checkForDataUpdates() {
     lastUpdateCheck = currentUpdateTime;
     loadAllData();
   }
+}
+
+// 1. DELETE FUNCTION - FIXED FOR LAST ENTRY ISSUE
+function deleteEntry(type, id, event) {
+  const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
+  if (!id) {
+    console.error('Missing ID for delete operation');
+    return;
+  }
+
+  if (confirm(`Are you sure you want to delete this item?`)) {
+    // Show loading state
+    if (button) {
+      button.textContent = 'Deleting...';
+      button.disabled = true;
+    }
+    
+    // Build endpoint URL
+    let endpoint = `${API_BASE_URL}/${type === 'timetable' ? 'timetable' : type === 'announcement' ? 'announcements' : 'notices'}/${id}`;
+    
+    console.log(`DELETING: Sending request to ${endpoint}`);
+    
+    // IMPORTANT: Add random parameter to prevent caching
+    const noCache = Date.now();
+    endpoint = endpoint + `?_nocache=${noCache}`;
+    
+    // Make delete request
+    fetch(endpoint, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+    .then(response => {
+      console.log(`DELETING: Status code: ${response.status}`);
+      if (!response.ok) {
+        return response.text().then(text => {
+          throw new Error(`Server error: ${text || response.status}`);
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`DELETING: Success response:`, data);
+      
+      // CRITICAL FIX: Force index page to reload by using a timestamp in localStorage
+      localStorage.setItem('forceDataReload', Date.now().toString());
+      
+      // Also try to use the broadcast channel
+      try {
+        const bc = new BroadcastChannel('uni_schedule_updates');
+        bc.postMessage({ 
+          type: 'entry-deleted', 
+          entryType: type,
+          entryId: id,
+          timestamp: Date.now()
+        });
+        bc.close();
+      } catch(e) {
+        console.log('BroadcastChannel not supported');
+      }
+      
+      // Hard refresh if it's the last item - this is the key fix
+      const isLastItem = document.querySelectorAll(`[data-type="${type}"]`).length <= 1;
+      if (isLastItem) {
+        console.log("DELETING LAST ITEM - FORCING COMPLETE REFRESH");
+        // Completely clear caches
+        localStorage.setItem('clearCache', 'true');
+        
+        // Reload current view with cache bypass
+        if (type === 'timetable') {
+          clearAndReloadTimetable();
+        } else if (type === 'announcement') {
+          clearAndReloadAnnouncements();
+        } else if (type === 'notice') {
+          clearAndReloadNotices();
+        }
+      } else {
+        // Normal reload for non-last items
+        if (type === 'timetable') {
+          loadTimetableEntries(false);
+        } else if (type === 'announcement') {
+          loadAnnouncements(false);
+        } else if (type === 'notice') {
+          loadNotices(false);
+        }
+      }
+    })
+    .catch(error => {
+      console.error(`DELETING: Error:`, error);
+      alert(`Delete failed. ${error.message}`);
+    })
+    .finally(() => {
+      // Reset button state
+      if (button) {
+        button.textContent = 'Delete';
+        button.disabled = false;
+      }
+    });
+  }
+}
+
+// 2. SPECIAL FUNCTION TO HANDLE LAST ITEM DELETION
+function clearAndReloadTimetable() {
+  console.log("FORCE RELOADING TIMETABLE WITH CACHE BYPASS");
+  
+  // Clear any cached data
+  localStorage.removeItem('timetableCache');
+  
+  fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    console.log(`RELOADED ${data.length} timetable entries`);
+    displayTimetableEntries(data);
+  })
+  .catch(error => {
+    console.error('Error loading timetable entries:', error);
+    displayTimetableEntries([]);
+  });
+}
+
+function clearAndReloadAnnouncements() {
+  console.log("FORCE RELOADING ANNOUNCEMENTS WITH CACHE BYPASS");
+  
+  // Clear any cached data
+  localStorage.removeItem('announcementsCache');
+  
+  fetch(`${API_BASE_URL}/announcements?_nocache=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    console.log(`RELOADED ${data.length} announcements`);
+    displayAnnouncements(data);
+  })
+  .catch(error => {
+    console.error('Error loading announcements:', error);
+    displayAnnouncements([]);
+  });
+}
+
+function clearAndReloadNotices() {
+  console.log("FORCE RELOADING NOTICES WITH CACHE BYPASS");
+  
+  // Clear any cached data
+  localStorage.removeItem('noticesCache');
+  
+  fetch(`${API_BASE_URL}/notices?_nocache=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    console.log(`RELOADED ${data.length} notices`);
+    displayNotices(data);
+  })
+  .catch(error => {
+    console.error('Error loading notices:', error);
+    displayNotices([]);
+  });
+}
+
+// 3. ADD THIS CODE TO YOUR INDEX.HTML FILE
+// Place this in the script tag that loads data in your index.html
+function setupIndexPageSync() {
+  console.log('Setting up index page sync');
+  
+  // Check for data updates frequently (more often than before)
+  setInterval(checkForIndexDataUpdates, 1000);
+  
+  // Listen for broadcast messages
+  try {
+    const bc = new BroadcastChannel('uni_schedule_updates');
+    bc.onmessage = function(event) {
+      console.log('Broadcast received:', event.data);
+      if (event.data && (event.data.type === 'data-updated' || event.data.type === 'entry-deleted')) {
+        console.log('Data change detected via broadcast, reloading');
+        forceReloadAllData();
+      }
+    };
+  } catch(e) {
+    console.log('BroadcastChannel not supported, using localStorage polling instead');
+  }
+}
+
+// Improved data update check for index.html
+let lastForceReloadCheck = '0';
+function checkForIndexDataUpdates() {
+  const forceReload = localStorage.getItem('forceDataReload') || '0';
+  const clearCache = localStorage.getItem('clearCache') === 'true';
+  
+  if (forceReload !== lastForceReloadCheck || clearCache) {
+    console.log('Forced data reload detected, refreshing data');
+    lastForceReloadCheck = forceReload;
+    
+    if (clearCache) {
+      localStorage.removeItem('clearCache');
+      // Clear all data caches
+      localStorage.removeItem('timetableCache');
+      localStorage.removeItem('announcementsCache');
+      localStorage.removeItem('noticesCache');
+    }
+    
+    forceReloadAllData();
+  }
+}
+
+// Force reload all data on index page
+function forceReloadAllData() {
+  const cacheBuster = Date.now();
+  
+  // Load timetable with cache busting
+  fetch(`/api/timetable?_nocache=${cacheBuster}`, {
+    headers: { 'Cache-Control': 'no-cache' }
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Force reloaded timetable data:', data);
+    // Call your index page's display function here
+    displayTimetableData(data);
+  })
+  .catch(err => console.error('Error reloading timetable:', err));
+  
+  // Similarly reload announcements and notices
+  // [Add similar code for announcements and notices]
 }
