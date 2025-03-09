@@ -2027,35 +2027,63 @@ function deleteEntry(type, id, event) {
     button.textContent = 'Deleting...';
     button.disabled = true;
 
-    let endpoint = `${API_BASE_URL}/${type}/${id}`;
+    let endpoint = `${API_BASE_URL}/${type === 'timetable' ? 'timetable' : type === 'announcement' ? 'announcements' : 'notices'}/${id}`;
+    
+    console.log(`Sending DELETE request to: ${endpoint}`);
 
-    fetch(endpoint, { method: 'DELETE' })
-      .then(response => {
-        if (!response.ok) {
-          return response.text().then(text => {
-            throw new Error(`Server error (${response.status}): ${text || 'No error message'}`);
-          });
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log(`Successfully deleted ${itemName}:`, data);
-        if (type === 'timetable') {
-          loadTimetableEntries(false);
-        } else if (type === 'announcement') {
-          loadAnnouncements(false);
-        } else if (type === 'notice') {
-          loadNotices(false);
-        }
-      })
-      .catch(error => {
-        console.error(`Error deleting ${itemName}:`, error);
-        alert(`Failed to delete ${itemName}. ${error.message}`);
-      })
-      .finally(() => {
-        button.textContent = originalText;
-        button.disabled = false;
-      });
+    fetch(endpoint, { 
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.text().then(text => {
+          throw new Error(`Server error (${response.status}): ${text || 'No error message'}`);
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`Successfully deleted ${itemName}:`, data);
+      
+      // Force index page to reload data by sending a broadcast event
+      broadcastDataChange();
+      
+      // Reload current view
+      if (type === 'timetable') {
+        loadTimetableEntries(false);
+      } else if (type === 'announcement') {
+        loadAnnouncements(false);
+      } else if (type === 'notice') {
+        loadNotices(false);
+      }
+    })
+    .catch(error => {
+      console.error(`Error deleting ${itemName}:`, error);
+      alert(`Failed to delete ${itemName}. ${error.message}`);
+    })
+    .finally(() => {
+      button.textContent = originalText;
+      button.disabled = false;
+    });
+  }
+}
+
+// Function to broadcast data changes to other pages
+function broadcastDataChange() {
+  // Use localStorage to communicate with index page
+  localStorage.setItem('dataUpdated', Date.now().toString());
+  
+  // If we're in the same domain, we can also use BroadcastChannel
+  try {
+    const bc = new BroadcastChannel('uni_schedule_updates');
+    bc.postMessage({ type: 'data-updated', timestamp: Date.now() });
+    bc.close();
+  } catch (e) {
+    console.log('BroadcastChannel not supported, using localStorage fallback');
   }
 }
 
@@ -2072,29 +2100,80 @@ function clearAllEntries(event) {
 
     console.log('Clearing all entries via API...');
 
-    Promise.all([
-      fetch(`${API_BASE_URL}/timetable/clear`, { method: 'DELETE' }).catch(() => fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' })).catch(() => fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' })),
-      fetch(`${API_BASE_URL}/announcements/clear`, { method: 'DELETE' }).catch(() => fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' })).catch(() => fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' })),
-      fetch(`${API_BASE_URL}/notices/clear`, { method: 'DELETE' }).catch(() => fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' })).catch(() => fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' }))
-    ])
-    .then(() => {
-      console.log('All entries cleared successfully');
-      loadTimetableEntries(false);
-      loadAnnouncements(false);
-      loadNotices(false);
-      alert('All entries cleared successfully!');
-    })
-    .catch(error => {
-      console.error('Error clearing entries:', error);
-      alert('Error clearing entries. Please try again.');
-    })
-    .finally(() => {
-      if (button) {
-        button.textContent = originalText;
-        button.disabled = false;
-      }
-    });
+    // Try multiple endpoint patterns sequentially for each data type
+    clearTimetableEntries()
+      .then(() => clearAnnouncementEntries())
+      .then(() => clearNoticeEntries())
+      .then(() => {
+        console.log('All entries cleared successfully');
+        
+        // Force index page to reload data
+        broadcastDataChange();
+        
+        // Reload admin views
+        loadTimetableEntries(false);
+        loadAnnouncements(false);
+        loadNotices(false);
+        
+        alert('All entries cleared successfully!');
+      })
+      .catch(error => {
+        console.error('Error clearing entries:', error);
+        alert('Error clearing entries. Please try again.');
+      })
+      .finally(() => {
+        if (button) {
+          button.textContent = originalText;
+          button.disabled = false;
+        }
+      });
   }
+}
+
+// Helper functions for clearing different entry types
+function clearTimetableEntries() {
+  return fetch(`${API_BASE_URL}/timetable/clear`, { 
+    method: 'DELETE',
+    headers: { 'Cache-Control': 'no-cache, no-store' }
+  })
+  .catch(() => {
+    console.log('Trying alternative timetable clear endpoint...');
+    return fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' });
+  })
+  .catch(() => {
+    console.log('Trying base timetable delete endpoint...');
+    return fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' });
+  });
+}
+
+function clearAnnouncementEntries() {
+  return fetch(`${API_BASE_URL}/announcements/clear`, { 
+    method: 'DELETE',
+    headers: { 'Cache-Control': 'no-cache, no-store' }
+  })
+  .catch(() => {
+    console.log('Trying alternative announcements clear endpoint...');
+    return fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' });
+  })
+  .catch(() => {
+    console.log('Trying base announcements delete endpoint...');
+    return fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' });
+  });
+}
+
+function clearNoticeEntries() {
+  return fetch(`${API_BASE_URL}/notices/clear`, { 
+    method: 'DELETE',
+    headers: { 'Cache-Control': 'no-cache, no-store' }
+  })
+  .catch(() => {
+    console.log('Trying alternative notices clear endpoint...');
+    return fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' });
+  })
+  .catch(() => {
+    console.log('Trying base notices delete endpoint...');
+    return fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' });
+  });
 }
 
 // Modified data loading functions to avoid unnecessary alerts
@@ -2177,6 +2256,10 @@ document.addEventListener('DOMContentLoaded', function() {
       clearAllBtn.parentNode.replaceChild(newBtn, clearAllBtn);
     }
     newBtn.addEventListener('click', clearAllEntries);
+    
+    // Remove any inline onclick attributes
+    newBtn.removeAttribute('onclick');
+    
     console.log('Clear All button initialized');
   }
   
@@ -2187,6 +2270,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const type = event.target.getAttribute('data-type') || 'timetable';
       
       if (id) {
+        event.preventDefault(); // Prevent any default behavior
         deleteEntry(type, id, event);
       }
     }
@@ -2198,4 +2282,41 @@ document.addEventListener('DOMContentLoaded', function() {
   loadNotices();
   
   console.log('Admin panel initialization complete');
+  
+  // Set a data change notification on load to ensure index pages are in sync
+  broadcastDataChange();
 });
+
+// Code to add to index.html script
+document.addEventListener('DOMContentLoaded', function() {
+  // Check for data updates periodically
+  setInterval(checkForDataUpdates, 2000); // Check every 2 seconds
+  
+  // Listen for broadcast messages
+  try {
+    const bc = new BroadcastChannel('uni_schedule_updates');
+    bc.onmessage = function(event) {
+      if (event.data && event.data.type === 'data-updated') {
+        console.log('Received update notification, reloading data');
+        loadAllData();
+      }
+    };
+  } catch(e) {
+    console.log('BroadcastChannel not supported, using localStorage polling instead');
+  }
+  
+  // Initial load
+  loadAllData();
+});
+
+// Helper function to check for data updates via localStorage
+let lastUpdateCheck = localStorage.getItem('dataUpdated') || '0';
+function checkForDataUpdates() {
+  const currentUpdateTime = localStorage.getItem('dataUpdated') || '0';
+  
+  if (currentUpdateTime !== lastUpdateCheck) {
+    console.log('Data update detected, reloading data');
+    lastUpdateCheck = currentUpdateTime;
+    loadAllData();
+  }
+}
