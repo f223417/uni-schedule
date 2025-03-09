@@ -848,7 +848,7 @@ function forceDeleteAllItemsIndividually() {
 // ======================================================
 
 function generatePDF() {
-  console.log('Generating PDF...');
+  console.log('Starting PDF generation...');
   
   // Show loading indicator
   const loadingMsg = document.createElement('div');
@@ -864,63 +864,108 @@ function generatePDF() {
   loadingMsg.textContent = 'Preparing PDF...';
   document.body.appendChild(loadingMsg);
 
-  // Helper function to load a script and ensure it's only loaded once
-  const loadScript = (src) => {
-    return new Promise((resolve, reject) => {
-      // Check if script is already loaded
-      if (document.querySelector(`script[src="${src}"]`)) {
-        console.log(`Script ${src} already loaded`);
-        resolve();
-        return;
+  // Try loading with multiple fallback CDNs
+  const loadScriptsWithFallbacks = async () => {
+    // Define multiple CDN sources for each library
+    const jspdfSources = [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+    ];
+    
+    const html2canvasSources = [
+      'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+      'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+      'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+    ];
+    
+    const html2pdfSources = [
+      'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+      'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js',
+      'https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js'
+    ];
+    
+    // Function to try loading a script from multiple sources
+    const tryLoadScript = async (sources) => {
+      for (const src of sources) {
+        try {
+          await loadScript(src);
+          console.log(`Successfully loaded ${src}`);
+          return true;
+        } catch (e) {
+          console.error(`Failed to load ${src}, trying next source if available`);
+        }
+      }
+      return false; // All sources failed
+    };
+    
+    // Main script loading function
+    const loadScript = (src) => {
+      return new Promise((resolve, reject) => {
+        // Check if script is already loaded
+        if (document.querySelector(`script[src="${src}"]`)) {
+          console.log(`Script ${src} already loaded`);
+          resolve();
+          return;
+        }
+        
+        console.log(`Loading script: ${src}`);
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        
+        // Set timeout to reject if loading takes too long
+        const timeoutId = setTimeout(() => {
+          reject(new Error(`Timeout loading ${src}`));
+        }, 10000); // 10 seconds
+        
+        script.onload = () => {
+          clearTimeout(timeoutId);
+          console.log(`Successfully loaded ${src}`);
+          // Give browser a moment to process the script
+          setTimeout(resolve, 100);
+        };
+        
+        script.onerror = () => {
+          clearTimeout(timeoutId);
+          reject(new Error(`Failed to load ${src}`));
+        };
+        
+        document.head.appendChild(script);
+      });
+    };
+
+    // Load libraries in correct order with retries
+    try {
+      // Step 1: Load jsPDF
+      const jsPdfLoaded = await tryLoadScript(jspdfSources);
+      if (!jsPdfLoaded) throw new Error("Failed to load jsPDF library");
+      
+      // Step 2: Load html2canvas
+      const html2canvasLoaded = await tryLoadScript(html2canvasSources);
+      if (!html2canvasLoaded) throw new Error("Failed to load html2canvas library");
+      
+      // Step 3: Load html2pdf which depends on the previous two
+      const html2pdfLoaded = await tryLoadScript(html2pdfSources);
+      if (!html2pdfLoaded) throw new Error("Failed to load html2pdf library");
+      
+      // Wait a bit more to ensure everything is initialized
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Verify libraries are available
+      if (typeof window.html2pdf === 'undefined' || typeof window.html2pdf.from !== 'function') {
+        throw new Error("HTML2PDF library failed to initialize properly");
       }
       
-      console.log(`Loading script: ${src}`);
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = () => {
-        console.log(`Successfully loaded: ${src}`);
-        resolve();
-      };
-      script.onerror = (e) => {
-        console.error(`Failed to load script: ${src}`, e);
-        reject(new Error(`Failed to load ${src}`));
-      };
-      document.head.appendChild(script);
-    });
+      return true;
+    } catch (error) {
+      console.error("Failed to load PDF libraries:", error);
+      throw error;
+    }
   };
 
-  // Create and prepare PDF content
-  const prepareContent = async () => {
-    // Create container for PDF content
-    const container = document.createElement('div');
-    container.className = 'pdf-container';
-    container.style.width = '210mm';
-    container.style.padding = '15mm';
-    container.style.backgroundColor = 'white';
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0';
-    container.style.zIndex = '-9999';
-    container.style.color = '#000';
-    
-    // Add title
-    const title = document.createElement('h1');
-    title.textContent = 'University Timetable';
-    title.style.textAlign = 'center';
-    title.style.marginBottom = '20px';
-    title.style.color = '#000';
-    title.style.fontSize = '24px';
-    container.appendChild(title);
-    
-    // Add current date and time
-    const dateInfo = document.createElement('p');
-    dateInfo.textContent = `Generated on: ${new Date().toLocaleString()}`;
-    dateInfo.style.textAlign = 'center';
-    dateInfo.style.marginBottom = '20px';
-    dateInfo.style.fontSize = '14px';
-    dateInfo.style.color = '#000';
-    container.appendChild(dateInfo);
-
+  // Fetch timetable data and generate PDF content
+  const generatePDFContent = async () => {
     try {
       // Fetch timetable data
       console.log('Fetching timetable data for PDF...');
@@ -934,6 +979,37 @@ function generatePDF() {
       
       const data = await response.json();
       console.log(`Loaded ${data.length} entries for PDF generation`);
+      
+      // Create container for PDF content
+      const container = document.createElement('div');
+      container.className = 'pdf-container';
+      container.style.width = '210mm';
+      container.style.padding = '15mm';
+      container.style.backgroundColor = 'white';
+      container.style.position = 'fixed';
+      container.style.top = '0';
+      container.style.left = '0';
+      container.style.zIndex = '-9999';
+      container.style.color = '#000';
+      container.style.visibility = 'hidden';
+      
+      // Add title
+      const title = document.createElement('h1');
+      title.textContent = 'University Timetable';
+      title.style.textAlign = 'center';
+      title.style.marginBottom = '20px';
+      title.style.color = '#000';
+      title.style.fontSize = '24px';
+      container.appendChild(title);
+      
+      // Add current date and time
+      const dateInfo = document.createElement('p');
+      dateInfo.textContent = `Generated on: ${new Date().toLocaleString()}`;
+      dateInfo.style.textAlign = 'center';
+      dateInfo.style.marginBottom = '20px';
+      dateInfo.style.fontSize = '14px';
+      dateInfo.style.color = '#000';
+      container.appendChild(dateInfo);
       
       if (!data || data.length === 0) {
         const noDataMsg = document.createElement('p');
@@ -1029,6 +1105,10 @@ function generatePDF() {
         });
       }
       
+      // Add the container to the document body but keep it hidden
+      document.body.appendChild(container);
+      
+      // Return the container
       return container;
     } catch (error) {
       console.error('Error preparing PDF content:', error);
@@ -1036,36 +1116,21 @@ function generatePDF() {
     }
   };
 
-  // Main function execution
-  const generatePDFProcess = async () => {
+  // Main execution flow
+  (async () => {
     try {
-      // Check if html2pdf is available, if not load it
-      if (typeof html2pdf === 'undefined' || typeof html2pdf.from !== 'function') {
-        console.log('PDF library not detected. Loading libraries...');
-        
-        // Load libraries in sequence - this fixes the "undefined" error
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-        
-        // Give time for libraries to initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      // Step 1: Load all required libraries
+      await loadScriptsWithFallbacks();
+      console.log('All PDF libraries loaded successfully');
       
-      // Double-check library loaded
-      if (typeof html2pdf === 'undefined' || typeof html2pdf.from !== 'function') {
-        throw new Error('HTML2PDF library failed to initialize properly');
-      }
+      // Step 2: Generate the PDF content
+      const container = await generatePDFContent();
+      console.log('PDF content generated, rendering PDF...');
       
-      // Prepare the content
-      const container = await prepareContent();
-      document.body.appendChild(container);
-      
-      // Let the DOM update and render content
-      console.log('PDF content ready, generating PDF...');
+      // Step 3: Wait for container to be fully rendered in the DOM
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Generate PDF with optimal settings
+      // Step 4: Generate the PDF
       const opt = {
         margin: [10, 10, 10, 10],
         filename: 'university_timetable.pdf',
@@ -1084,22 +1149,30 @@ function generatePDF() {
         }
       };
       
-      await html2pdf().from(container).set(opt).save();
-      console.log('PDF generated successfully');
+      // Use the global html2pdf object
+      await window.html2pdf().from(container).set(opt).save();
+      console.log('PDF generated and saved successfully');
       
-      // Clean up
-      document.body.removeChild(container);
-      document.body.removeChild(loadingMsg);
+      // Step 5: Clean up
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
       
+      if (loadingMsg && loadingMsg.parentNode) {
+        loadingMsg.parentNode.removeChild(loadingMsg);
+      }
+      
+      console.log('PDF generation complete');
     } catch (error) {
-      console.error('Error in PDF generation:', error);
-      alert('Error generating PDF: ' + error.message);
-      document.body.removeChild(loadingMsg);
+      console.error('PDF generation failed:', error);
+      alert(`Error generating PDF: ${error.message}`);
+      
+      // Clean up loading message
+      if (loadingMsg && loadingMsg.parentNode) {
+        loadingMsg.parentNode.removeChild(loadingMsg);
+      }
     }
-  };
-  
-  // Start the PDF generation process
-  generatePDFProcess();
+  })();
 }
 
 function formatTimeForDisplay(timeSlot) { /* your implementation */
