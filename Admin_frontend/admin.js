@@ -466,81 +466,99 @@ function clearAllEntries(event) {
     button.disabled = true;
   }
 
-  console.log('Clearing all entries via API...');
+  console.log('Starting individual deletion of all entries...');
   
-  // Track deletion success
-  let deletionSuccessful = true;
+  // Clear displays immediately for better user feedback
+  displayTimetableEntries([]);
+  displayAnnouncements([]);
+  displayNotices([]);
   
-  // First approach: Try bulk delete endpoint
-  const deleteAllTimetable = fetch(`${API_BASE_URL}/timetable`, { 
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store'
-    }
-  })
-  .then(response => {
-    if (!response.ok) {
-      console.error(`Bulk delete failed with status ${response.status}`);
-      deletionSuccessful = false;
-      return false;
-    }
-    return true;
-  })
-  .catch(error => {
-    console.error('Error in bulk delete:', error);
-    deletionSuccessful = false;
-    return false;
-  });
+  // Temporarily disable polling if it's active
+  const pollingInterval = window.pollingInterval;
+  if (pollingInterval) {
+    console.log('Temporarily disabling data polling during deletion');
+    clearInterval(pollingInterval);
+  }
   
-  const deleteAllAnnouncements = fetch(`${API_BASE_URL}/announcements`, { 
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store'
-    }
-  })
-  .then(response => {
-    if (!response.ok) {
-      deletionSuccessful = false;
-      return false;
-    }
-    return true;
-  })
-  .catch(() => {
-    deletionSuccessful = false;
-    return false;
-  });
-  
-  const deleteAllNotices = fetch(`${API_BASE_URL}/notices`, { 
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store'
-    }
-  })
-  .then(response => {
-    if (!response.ok) {
-      deletionSuccessful = false;
-      return false;
-    }
-    return true;
-  })
-  .catch(() => {
-    deletionSuccessful = false;
-    return false;
-  });
-  
-  // Execute all delete operations
-  Promise.all([deleteAllTimetable, deleteAllAnnouncements, deleteAllNotices])
-  .then(() => {
-    if (!deletionSuccessful) {
-      throw new Error('One or more deletion operations failed');
-    }
+  // Get all current items and delete them individually
+  Promise.all([
+    fetch(`${API_BASE_URL}/timetable`).then(r => r.json()).catch(() => []),
+    fetch(`${API_BASE_URL}/announcements`).then(r => r.json()).catch(() => []),
+    fetch(`${API_BASE_URL}/notices`).then(r => r.json()).catch(() => [])
+  ])
+  .then(([timetableEntries, announcements, notices]) => {
+    console.log(`Found ${timetableEntries.length} timetable entries, ${announcements.length} announcements, ${notices.length} notices to delete`);
     
-    console.log('API Clear completed, now syncing with localStorage');
+    // Create deletion promises for each item
+    const deletionPromises = [];
     
-    // Clear localStorage 
+    // Delete timetable entries one by one
+    timetableEntries.forEach(entry => {
+      if (entry.id) {
+        deletionPromises.push(
+          new Promise((resolve) => {
+            // Add small delay between requests to prevent overwhelming server
+            setTimeout(() => {
+              fetch(`${API_BASE_URL}/timetable/${entry.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+              })
+              .then(() => resolve())
+              .catch(e => {
+                console.error(`Failed to delete timetable entry ${entry.id}:`, e);
+                resolve(); // Continue with next deletion even if this one fails
+              });
+            }, 50); // 50ms delay between requests
+          })
+        );
+      }
+    });
+    
+    // Delete announcements one by one
+    announcements.forEach(announcement => {
+      if (announcement.id) {
+        deletionPromises.push(
+          new Promise((resolve) => {
+            setTimeout(() => {
+              fetch(`${API_BASE_URL}/announcements/${announcement.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+              })
+              .then(() => resolve())
+              .catch(() => resolve());
+            }, 50);
+          })
+        );
+      }
+    });
+    
+    // Delete notices one by one
+    notices.forEach(notice => {
+      if (notice.id) {
+        deletionPromises.push(
+          new Promise((resolve) => {
+            setTimeout(() => {
+              fetch(`${API_BASE_URL}/notices/${notice.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+              })
+              .then(() => resolve())
+              .catch(() => resolve());
+            }, 50);
+          })
+        );
+      }
+    });
+    
+    // Execute all individual deletions
+    return Promise.all(deletionPromises).then(() => {
+      return { timetableCount: timetableEntries.length, announcementCount: announcements.length, noticeCount: notices.length };
+    });
+  })
+  .then((counts) => {
+    console.log('Individual item deletion completed');
+    
+    // Clear localStorage to ensure clean state
     localStorage.removeItem('timetableEntries');
     localStorage.removeItem('cachedTimetableData');
     localStorage.removeItem('announcements');
@@ -549,45 +567,58 @@ function clearAllEntries(event) {
     localStorage.removeItem('announcementsCache');
     localStorage.removeItem('noticesCache');
     
-    // Wait 500ms before reloading to let server process the deletes
+    // Set markers for other pages to know data was cleared
+    const timestamp = Date.now().toString();
+    localStorage.setItem('forceDataReload', timestamp);
+    localStorage.setItem('clearCache', 'true');
+    localStorage.setItem('timetableUpdated', timestamp);
+    localStorage.setItem('announcementsUpdated', timestamp);
+    localStorage.setItem('noticesUpdated', timestamp);
+    
+    // Notify other tabs/windows
+    try {
+      const bc = new BroadcastChannel('uni_schedule_updates');
+      bc.postMessage({ 
+        type: 'all-data-cleared',
+        timestamp: timestamp
+      });
+      bc.close();
+    } catch(e) {
+      console.log('BroadcastChannel not supported');
+    }
+    
+    // Show success message with count of deleted items
+    alert(`All entries cleared successfully! Deleted ${counts.timetableCount} timetable entries, ${counts.announcementCount} announcements, and ${counts.noticeCount} notices.`);
+    
+    // Wait a bit longer before reloading data to ensure server has processed all deletions
     setTimeout(() => {
-      // Force display clear without reloading from API
-      displayTimetableEntries([]);
-      displayAnnouncements([]);
-      displayNotices([]);
+      console.log('Reloading data after deletion');
+      loadAllData();
       
-      // Set markers for other pages to know data was cleared
-      const timestamp = Date.now().toString();
-      localStorage.setItem('forceDataReload', timestamp);
-      localStorage.setItem('clearCache', 'true');
-      localStorage.setItem('timetableUpdated', timestamp);
-      localStorage.setItem('announcementsUpdated', timestamp);
-      localStorage.setItem('noticesUpdated', timestamp);
-      
-      // Broadcast a message to other windows/tabs
-      try {
-        const bc = new BroadcastChannel('uni_schedule_updates');
-        bc.postMessage({ 
-          type: 'all-data-cleared',
-          timestamp: timestamp
-        });
-        bc.close();
-      } catch(e) {
-        console.log('BroadcastChannel not supported');
+      // Restart polling if it was active
+      if (pollingInterval) {
+        console.log('Re-enabling data polling');
+        window.pollingInterval = setInterval(() => {
+          console.log("Polling for updates...");
+          loadAllData();
+        }, 5000);
       }
-      
-      alert('All entries cleared successfully!');
-      
-      // Only now reload data from API after 1 second delay
-      // to ensure server has processed changes
-      setTimeout(() => {
-        loadAllData();
-      }, 1000);
-    }, 500);
+    }, 2000); // 2 second delay before reloading
   })
   .catch(error => {
-    console.error('Error clearing entries:', error);
-    alert('Error clearing entries. Please try again or contact support.');
+    console.error('Error in clear all process:', error);
+    alert('There was an error clearing some entries. Please check the console for details.');
+    
+    // Attempt to reload data anyway
+    setTimeout(() => loadAllData(), 1000);
+    
+    // Restart polling if it was active
+    if (pollingInterval) {
+      window.pollingInterval = setInterval(() => {
+        console.log("Polling for updates...");
+        loadAllData();
+      }, 5000);
+    }
   })
   .finally(() => {
     if (button) {

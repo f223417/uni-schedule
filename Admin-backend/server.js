@@ -77,14 +77,6 @@ app.delete('/api/timetable/:id', async (req, res) => {
   }
 });
 
-// Example server-side code (Node.js/Express)
-app.delete('/api/timetable', (req, res) => {
-  // Clear all timetable entries from database
-  db.timetable = [];
-  fs.writeFileSync('timetable.json', JSON.stringify([]));
-  res.json({ success: true, message: 'All timetable entries deleted' });
-});
-
 // Announcement Endpoints
 app.get('/api/announcements', async (req, res) => {
   try {
