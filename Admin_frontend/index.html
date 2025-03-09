@@ -19,7 +19,6 @@
         <button id="prev-week">Previous Week</button>
         <span id="display-week"></span>
         <button id="next-week">Next Week</button>
-        <button id="refresh-btn" style="margin-left: 20px; background: #4CAF50; color: white; border: none; padding: 5px 10px; cursor: pointer;">Refresh Data</button>
     </div>
     <div class="timetable-container">
         <table id="timetable-entries" class="timetable">
@@ -292,10 +291,6 @@
             isDataLoading = true;
             console.log('Loading data from API...');
             
-            // Show loading indicator
-            const refreshBtn = document.getElementById('refresh-btn');
-            if (refreshBtn) refreshBtn.textContent = 'Loading...';
-            
             // Load timetable data
             fetch('/api/timetable')
                 .then(response => {
@@ -314,12 +309,10 @@
                     localStorage.setItem('timetableEntries', JSON.stringify(data));
                     updateTimetable();
                     isDataLoading = false;
-                    if (refreshBtn) refreshBtn.textContent = 'Refresh Data';
                 })
                 .catch(error => {
                     console.error('Error loading timetable data:', error);
                     isDataLoading = false;
-                    if (refreshBtn) refreshBtn.textContent = 'Refresh Data';
                 });
             
             // Load announcements
@@ -368,7 +361,6 @@
             // Setup navigation buttons
             const prevWeekBtn = document.getElementById('prev-week');
             const nextWeekBtn = document.getElementById('next-week');
-            const refreshBtn = document.getElementById('refresh-btn');
             
             if (prevWeekBtn) {
                 prevWeekBtn.addEventListener('click', function() {
@@ -379,12 +371,6 @@
             if (nextWeekBtn) {
                 nextWeekBtn.addEventListener('click', function() {
                     navigateWeek('next');
-                });
-            }
-            
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', function() {
-                    loadDataFromAPI();
                 });
             }
             
