@@ -848,7 +848,7 @@ function forceDeleteAllItemsIndividually() {
 // ======================================================
 
 function generatePDF() {
-  console.log('Starting PDF generation...');
+  console.log('Starting PDF generation with direct approach...');
   
   // Show loading indicator
   const loadingMsg = document.createElement('div');
@@ -864,315 +864,293 @@ function generatePDF() {
   loadingMsg.textContent = 'Preparing PDF...';
   document.body.appendChild(loadingMsg);
 
-  // Try loading with multiple fallback CDNs
-  const loadScriptsWithFallbacks = async () => {
-    // Define multiple CDN sources for each library
-    const jspdfSources = [
-      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
-    ];
-    
-    const html2canvasSources = [
-      'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-      'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
-      'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
-    ];
-    
-    const html2pdfSources = [
-      'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
-      'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js',
-      'https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js'
-    ];
-    
-    // Function to try loading a script from multiple sources
-    const tryLoadScript = async (sources) => {
-      for (const src of sources) {
-        try {
-          await loadScript(src);
-          console.log(`Successfully loaded ${src}`);
-          return true;
-        } catch (e) {
-          console.error(`Failed to load ${src}, trying next source if available`);
-        }
-      }
-      return false; // All sources failed
-    };
-    
-    // Main script loading function
-    const loadScript = (src) => {
-      return new Promise((resolve, reject) => {
-        // Check if script is already loaded
-        if (document.querySelector(`script[src="${src}"]`)) {
-          console.log(`Script ${src} already loaded`);
-          resolve();
-          return;
-        }
-        
-        console.log(`Loading script: ${src}`);
-        const script = document.createElement('script');
-        script.src = src;
-        script.async = true;
-        
-        // Set timeout to reject if loading takes too long
-        const timeoutId = setTimeout(() => {
-          reject(new Error(`Timeout loading ${src}`));
-        }, 10000); // 10 seconds
-        
-        script.onload = () => {
-          clearTimeout(timeoutId);
-          console.log(`Successfully loaded ${src}`);
-          // Give browser a moment to process the script
-          setTimeout(resolve, 100);
-        };
-        
-        script.onerror = () => {
-          clearTimeout(timeoutId);
-          reject(new Error(`Failed to load ${src}`));
-        };
-        
-        document.head.appendChild(script);
-      });
-    };
-
-    // Load libraries in correct order with retries
-    try {
-      // Step 1: Load jsPDF
-      const jsPdfLoaded = await tryLoadScript(jspdfSources);
-      if (!jsPdfLoaded) throw new Error("Failed to load jsPDF library");
-      
-      // Step 2: Load html2canvas
-      const html2canvasLoaded = await tryLoadScript(html2canvasSources);
-      if (!html2canvasLoaded) throw new Error("Failed to load html2canvas library");
-      
-      // Step 3: Load html2pdf which depends on the previous two
-      const html2pdfLoaded = await tryLoadScript(html2pdfSources);
-      if (!html2pdfLoaded) throw new Error("Failed to load html2pdf library");
-      
-      // Wait a bit more to ensure everything is initialized
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Verify libraries are available
-      if (typeof window.html2pdf === 'undefined' || typeof window.html2pdf.from !== 'function') {
-        throw new Error("HTML2PDF library failed to initialize properly");
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Failed to load PDF libraries:", error);
-      throw error;
+  // Load required libraries
+  Promise.all([
+    // Load jsPDF
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
+    // Load html2canvas
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js')
+  ])
+  .then(() => {
+    console.log('Libraries loaded successfully');
+    return fetchTimetableData();
+  })
+  .then(data => {
+    console.log(`Creating PDF with ${data.length} timetable entries`);
+    return createPDFContent(data);
+  })
+  .then(container => {
+    console.log('Content created, generating canvas');
+    return generateCanvas(container);
+  })
+  .then(canvas => {
+    console.log('Canvas generated, creating PDF');
+    return createPDFFromCanvas(canvas);
+  })
+  .catch(error => {
+    console.error('PDF generation error:', error);
+    alert(`Error generating PDF: ${error.message}`);
+  })
+  .finally(() => {
+    // Remove loading message
+    if (loadingMsg && loadingMsg.parentNode) {
+      loadingMsg.parentNode.removeChild(loadingMsg);
     }
-  };
+  });
 
-  // Fetch timetable data and generate PDF content
-  const generatePDFContent = async () => {
-    try {
-      // Fetch timetable data
-      console.log('Fetching timetable data for PDF...');
-      const response = await fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-      });
+  // Helper function to load a script
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      // Check if script is already loaded
+      if (document.querySelector(`script[src="${src}"]`)) {
+        console.log(`Script ${src} already loaded`);
+        resolve();
+        return;
+      }
       
+      console.log(`Loading script: ${src}`);
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      
+      script.onload = () => {
+        console.log(`Script loaded: ${src}`);
+        resolve();
+      };
+      
+      script.onerror = () => {
+        reject(new Error(`Failed to load ${src}`));
+      };
+      
+      document.head.appendChild(script);
+    });
+  }
+
+  // Fetch timetable data
+  function fetchTimetableData() {
+    return fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, {
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+    })
+    .then(response => {
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}`);
       }
+      return response.json();
+    });
+  }
+
+  // Create PDF content
+  function createPDFContent(data) {
+    // Create container for PDF content
+    const container = document.createElement('div');
+    container.className = 'pdf-container';
+    container.style.width = '1000px';  // Wide enough for landscape
+    container.style.padding = '20px';
+    container.style.backgroundColor = 'white';
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.zIndex = '-9999';
+    container.style.color = '#000';
+    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.visibility = 'hidden';
+    
+    // Add title
+    const title = document.createElement('h1');
+    title.textContent = 'University Timetable';
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '15px';
+    title.style.color = '#3558d4';
+    title.style.fontSize = '28px';
+    container.appendChild(title);
+    
+    // Add current date and time
+    const dateInfo = document.createElement('p');
+    dateInfo.textContent = `Generated on: ${new Date().toLocaleString()}`;
+    dateInfo.style.textAlign = 'center';
+    dateInfo.style.marginBottom = '20px';
+    dateInfo.style.fontSize = '14px';
+    dateInfo.style.color = '#666';
+    container.appendChild(dateInfo);
+    
+    if (!data || data.length === 0) {
+      const noDataMsg = document.createElement('p');
+      noDataMsg.textContent = 'No timetable entries available.';
+      noDataMsg.style.textAlign = 'center';
+      noDataMsg.style.padding = '30px 0';
+      noDataMsg.style.fontSize = '16px';
+      noDataMsg.style.color = '#666';
+      container.appendChild(noDataMsg);
+    } else {
+      // Group entries by week
+      const weekGroups = {};
+      data.forEach(entry => {
+        if (!weekGroups[entry.week]) {
+          weekGroups[entry.week] = [];
+        }
+        weekGroups[entry.week].push(entry);
+      });
       
-      const data = await response.json();
-      console.log(`Loaded ${data.length} entries for PDF generation`);
-      
-      // Create container for PDF content
-      const container = document.createElement('div');
-      container.className = 'pdf-container';
-      container.style.width = '210mm';
-      container.style.padding = '15mm';
-      container.style.backgroundColor = 'white';
-      container.style.position = 'fixed';
-      container.style.top = '0';
-      container.style.left = '0';
-      container.style.zIndex = '-9999';
-      container.style.color = '#000';
-      container.style.visibility = 'hidden';
-      
-      // Add title
-      const title = document.createElement('h1');
-      title.textContent = 'University Timetable';
-      title.style.textAlign = 'center';
-      title.style.marginBottom = '20px';
-      title.style.color = '#000';
-      title.style.fontSize = '24px';
-      container.appendChild(title);
-      
-      // Add current date and time
-      const dateInfo = document.createElement('p');
-      dateInfo.textContent = `Generated on: ${new Date().toLocaleString()}`;
-      dateInfo.style.textAlign = 'center';
-      dateInfo.style.marginBottom = '20px';
-      dateInfo.style.fontSize = '14px';
-      dateInfo.style.color = '#000';
-      container.appendChild(dateInfo);
-      
-      if (!data || data.length === 0) {
-        const noDataMsg = document.createElement('p');
-        noDataMsg.textContent = 'No timetable entries available.';
-        noDataMsg.style.textAlign = 'center';
-        noDataMsg.style.padding = '20px';
-        noDataMsg.style.color = '#000';
-        container.appendChild(noDataMsg);
-      } else {
-        // Group entries by week
-        const weekGroups = {};
-        data.forEach(entry => {
-          if (!weekGroups[entry.week]) {
-            weekGroups[entry.week] = [];
-          }
-          weekGroups[entry.week].push(entry);
+      // Create tables for each week
+      Object.keys(weekGroups).sort().forEach(week => {
+        const weekTitle = document.createElement('h2');
+        weekTitle.textContent = week;
+        weekTitle.style.marginTop = '25px';
+        weekTitle.style.color = '#444';
+        weekTitle.style.fontSize = '20px';
+        weekTitle.style.borderBottom = '2px solid #4a90e2';
+        weekTitle.style.paddingBottom = '5px';
+        container.appendChild(weekTitle);
+        
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.marginBottom = '30px';
+        table.style.fontSize = '14px';
+        
+        // Add table header
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Course', 'Day', 'Time', 'Teacher', 'Venue'].forEach(heading => {
+          const th = document.createElement('th');
+          th.textContent = heading;
+          th.style.border = '1px solid #ddd';
+          th.style.padding = '10px';
+          th.style.backgroundColor = '#4a90e2';
+          th.style.color = 'white';
+          th.style.fontWeight = 'bold';
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Add table body with data
+        const tbody = document.createElement('tbody');
+        weekGroups[week].forEach((entry, index) => {
+          const row = document.createElement('tr');
+          row.style.backgroundColor = index % 2 === 0 ? '#f9f9f9' : 'white';
+          
+          // Course column
+          const courseTd = document.createElement('td');
+          courseTd.textContent = entry.course || '';
+          courseTd.style.border = '1px solid #ddd';
+          courseTd.style.padding = '8px';
+          row.appendChild(courseTd);
+          
+          // Days column
+          const daysTd = document.createElement('td');
+          daysTd.textContent = Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || '';
+          daysTd.style.border = '1px solid #ddd';
+          daysTd.style.padding = '8px';
+          row.appendChild(daysTd);
+          
+          // Time column
+          const timeTd = document.createElement('td');
+          timeTd.textContent = `${entry.startTime || ''} - ${entry.endTime || ''}`;
+          timeTd.style.border = '1px solid #ddd';
+          timeTd.style.padding = '8px';
+          row.appendChild(timeTd);
+          
+          // Teacher column
+          const teacherTd = document.createElement('td');
+          teacherTd.textContent = entry.teacher || '';
+          teacherTd.style.border = '1px solid #ddd';
+          teacherTd.style.padding = '8px';
+          row.appendChild(teacherTd);
+          
+          // Venue column
+          const venueTd = document.createElement('td');
+          venueTd.textContent = entry.venue || '';
+          venueTd.style.border = '1px solid #ddd';
+          venueTd.style.padding = '8px';
+          row.appendChild(venueTd);
+          
+          tbody.appendChild(row);
         });
         
-        // Create tables for each week
-        Object.keys(weekGroups).sort().forEach(week => {
-          const weekTitle = document.createElement('h2');
-          weekTitle.textContent = week;
-          weekTitle.style.marginTop = '20px';
-          weekTitle.style.color = '#000';
-          weekTitle.style.fontSize = '18px';
-          container.appendChild(weekTitle);
-          
-          const table = document.createElement('table');
-          table.style.width = '100%';
-          table.style.borderCollapse = 'collapse';
-          table.style.marginBottom = '25px';
-          
-          // Add table header
-          const thead = document.createElement('thead');
-          const headerRow = document.createElement('tr');
-          ['Course', 'Day', 'Time', 'Teacher', 'Venue'].forEach(heading => {
-            const th = document.createElement('th');
-            th.textContent = heading;
-            th.style.border = '1px solid #333';
-            th.style.padding = '8px';
-            th.style.backgroundColor = '#f2f2f2';
-            th.style.color = '#000';
-            th.style.fontWeight = 'bold';
-            headerRow.appendChild(th);
-          });
-          thead.appendChild(headerRow);
-          table.appendChild(thead);
-          
-          // Add table body with data
-          const tbody = document.createElement('tbody');
-          weekGroups[week].forEach(entry => {
-            const row = document.createElement('tr');
-            
-            const courseTd = document.createElement('td');
-            courseTd.textContent = entry.course || '';
-            courseTd.style.border = '1px solid #333';
-            courseTd.style.padding = '8px';
-            courseTd.style.color = '#000';
-            row.appendChild(courseTd);
-            
-            const daysTd = document.createElement('td');
-            daysTd.textContent = Array.isArray(entry.days) ? entry.days.join(', ') : entry.days || '';
-            daysTd.style.border = '1px solid #333';
-            daysTd.style.padding = '8px';
-            daysTd.style.color = '#000';
-            row.appendChild(daysTd);
-            
-            const timeTd = document.createElement('td');
-            timeTd.textContent = `${entry.startTime || ''} - ${entry.endTime || ''}`;
-            timeTd.style.border = '1px solid #333';
-            timeTd.style.padding = '8px';
-            timeTd.style.color = '#000';
-            row.appendChild(timeTd);
-            
-            const teacherTd = document.createElement('td');
-            teacherTd.textContent = entry.teacher || '';
-            teacherTd.style.border = '1px solid #333';
-            teacherTd.style.padding = '8px';
-            teacherTd.style.color = '#000';
-            row.appendChild(teacherTd);
-            
-            const venueTd = document.createElement('td');
-            venueTd.textContent = entry.venue || '';
-            venueTd.style.border = '1px solid #333';
-            venueTd.style.padding = '8px';
-            venueTd.style.color = '#000';
-            row.appendChild(venueTd);
-            
-            tbody.appendChild(row);
-          });
-          table.appendChild(tbody);
-          container.appendChild(table);
-        });
-      }
-      
-      // Add the container to the document body but keep it hidden
-      document.body.appendChild(container);
-      
-      // Return the container
-      return container;
-    } catch (error) {
-      console.error('Error preparing PDF content:', error);
-      throw error;
+        table.appendChild(tbody);
+        container.appendChild(table);
+      });
     }
-  };
+    
+    // Add footer
+    const footer = document.createElement('div');
+    footer.style.borderTop = '1px solid #ddd';
+    footer.style.paddingTop = '10px';
+    footer.style.marginTop = '30px';
+    footer.style.fontSize = '12px';
+    footer.style.color = '#666';
+    footer.style.textAlign = 'center';
+    footer.textContent = 'University Timetable System';
+    container.appendChild(footer);
+    
+    // Add container to document
+    document.body.appendChild(container);
+    
+    return container;
+  }
 
-  // Main execution flow
-  (async () => {
-    try {
-      // Step 1: Load all required libraries
-      await loadScriptsWithFallbacks();
-      console.log('All PDF libraries loaded successfully');
-      
-      // Step 2: Generate the PDF content
-      const container = await generatePDFContent();
-      console.log('PDF content generated, rendering PDF...');
-      
-      // Step 3: Wait for container to be fully rendered in the DOM
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Step 4: Generate the PDF
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: 'university_timetable.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
+  // Generate canvas from container
+  function generateCanvas(container) {
+    // Wait a moment to ensure rendering is complete
+    return new Promise(resolve => {
+      setTimeout(() => {
+        window.html2canvas(container, {
+          scale: 2, // Higher scale for better quality
           useCORS: true,
-          logging: true,
-          letterRendering: true,
-          allowTaint: true
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait'
-        }
-      };
-      
-      // Use the global html2pdf object
-      await window.html2pdf().from(container).set(opt).save();
-      console.log('PDF generated and saved successfully');
-      
-      // Step 5: Clean up
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        })
+        .then(canvas => {
+          // Remove container after capturing
+          if (container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+          resolve(canvas);
+        });
+      }, 500); // Wait 500ms for rendering
+    });
+  }
+
+  // Create PDF from canvas
+  function createPDFFromCanvas(canvas) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create PDF in landscape orientation
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: 'a4'
+        });
+        
+        // Calculate dimensions
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        
+        // Calculate scaling to fit properly
+        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight) * 0.95;
+        
+        // Center on page
+        const x = (pdfWidth - imgWidth * ratio) / 2;
+        const y = 10; // Small top margin
+        
+        // Add to PDF
+        pdf.addImage(imgData, 'PNG', x, y, imgWidth * ratio, imgHeight * ratio);
+        
+        // Save the PDF
+        pdf.save('university_timetable.pdf');
+        console.log('PDF successfully generated and saved');
+        resolve();
+      } catch (error) {
+        reject(new Error('Failed to create PDF: ' + error.message));
       }
-      
-      if (loadingMsg && loadingMsg.parentNode) {
-        loadingMsg.parentNode.removeChild(loadingMsg);
-      }
-      
-      console.log('PDF generation complete');
-    } catch (error) {
-      console.error('PDF generation failed:', error);
-      alert(`Error generating PDF: ${error.message}`);
-      
-      // Clean up loading message
-      if (loadingMsg && loadingMsg.parentNode) {
-        loadingMsg.parentNode.removeChild(loadingMsg);
-      }
-    }
-  })();
+    });
+  }
 }
 
 function formatTimeForDisplay(timeSlot) { /* your implementation */
@@ -1197,7 +1175,6 @@ return `${formatSingleTime(times[0])} - ${formatSingleTime(times[1])}`;
 // ======================================================
 // SETUP FUNCTIONS
 // ======================================================
-
 function setupUserInfo() { /* your implementation */ 
   console.log('Setting up user info...');
   
