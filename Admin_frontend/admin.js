@@ -330,7 +330,7 @@ function displayTimetableEntries(entries) { /* SINGLE implementation */
         <td>${entry.week || ''}</td>
         <td>${entry.course || ''}</td>
         <td>${entry.days ? (typeof entry.days === 'string' ? entry.days : entry.days.join(', ')) : ''}</td>
-        <td>${entry.startTime || ''} - ${entry.endTime || ''}</td>
+        <td>${formatTimeForDisplay(`${entry.startTime || ''} - ${entry.endTime || ''}`)}</td>
         <td>${entry.teacher || ''}</td>
         <td>${entry.venue || ''}</td>
         <td>
@@ -1092,15 +1092,15 @@ function generatePDF() {
         // If no time slots found, use default slots
         if (timeSlots.length === 0) {
           timeSlots = [
-            '8:00 AM - 9:00 AM',
-            '9:00 AM - 10:00 AM',
-            '10:00 AM - 11:00 AM',
-            '11:00 AM - 12:00 PM',
-            '12:00 PM - 1:00 PM',
-            '1:00 PM - 2:00 PM',
-            '2:00 PM - 3:00 PM',
-            '3:00 PM - 4:00 PM',
-            '4:00 PM - 5:00 PM'
+            '08:00 - 09:00',
+            '09:00 - 10:00',
+            '10:00 - 11:00',
+            '11:00 - 12:00',
+            '12:00 - 13:00',
+            '13:00 - 14:00',
+            '14:00 - 15:00',
+            '15:00 - 16:00',
+            '16:00 - 17:00'
           ];
         } else {
           // Sort time slots
@@ -1151,9 +1151,9 @@ function generatePDF() {
           const row = document.createElement('tr');
           row.style.backgroundColor = index % 2 === 0 ? '#f9f9f9' : 'white';
           
-          // Add time slot cell
+          // Add time slot cell with formatted time
           const timeCell = document.createElement('td');
-          timeCell.textContent = timeSlot;
+          timeCell.textContent = formatTimeForDisplay(timeSlot);
           timeCell.style.padding = '10px';
           timeCell.style.border = '1px solid #ddd';
           timeCell.style.fontWeight = 'bold';
@@ -1177,6 +1177,8 @@ function generatePDF() {
               
               // Check if entry time matches
               const entryTimeSlot = `${entry.startTime} - ${entry.endTime}`;
+              // We could format this for comparison, but it's better to keep the original format
+              // for comparison purposes and only format for display
               const isTimeMatch = entryTimeSlot === timeSlot;
               
               return isDayMatch && isTimeMatch;
