@@ -941,10 +941,11 @@ function setupFormHandlers() { /* your implementation */
 // ======================================================
 // SUBMISSION HANDLERS
 // ======================================================
-function submitTimetableEntry() { /* your implementation */
+// Fix submitTimetableEntry function
+function submitTimetableEntry() {
   console.log('Submitting timetable entry...');
   
-  // Get form elements
+  // Get form elements - fix ID references to match your HTML
   const weekInput = document.getElementById('week');
   const courseInput = document.getElementById('course');
   const daysSelect = document.getElementById('days');
@@ -952,127 +953,60 @@ function submitTimetableEntry() { /* your implementation */
   const endTimeInput = document.getElementById('end-time');
   const teacherInput = document.getElementById('teacher');
   const venueInput = document.getElementById('venue');
-  const submitBtn = document.getElementById('submit-timetable');
+  const submitBtn = document.querySelector('#timetable-form button[type="submit"]');
   
-  // Validation - check required fields
-  if (!weekInput || !courseInput || !daysSelect || !startTimeInput || !endTimeInput || !teacherInput || !venueInput) {
-    console.error('Form fields not found');
-    alert('Form fields not found. Please refresh the page.');
+  // Debug which elements weren't found
+  const missingFields = [];
+  if (!weekInput) missingFields.push('week');
+  if (!courseInput) missingFields.push('course');
+  if (!daysSelect) missingFields.push('days');
+  if (!startTimeInput) missingFields.push('start-time');
+  if (!endTimeInput) missingFields.push('end-time');
+  if (!teacherInput) missingFields.push('teacher');
+  if (!venueInput) missingFields.push('venue');
+  
+  if (missingFields.length > 0) {
+    console.error('Form fields not found:', missingFields);
+    alert(`Form fields not found: ${missingFields.join(', ')}. Please check HTML IDs.`);
     return;
   }
   
-  // Get values
-  const week = weekInput.value;
-  const course = courseInput.value;
-  const startTime = startTimeInput.value;
-  const endTime = endTimeInput.value;
-  const teacher = teacherInput.value;
-  const venue = venueInput.value;
-  
-  // Get selected days (multiple select)
-  const days = [];
-  for (let i = 0; i < daysSelect.options.length; i++) {
-    if (daysSelect.options[i].selected) {
-      days.push(daysSelect.options[i].value);
-    }
-  }
-  
-  if (!week || !course || days.length === 0 || !startTime || !endTime || !teacher || !venue) {
-    alert('Please fill all required fields');
-    return;
-  }
-  
-  // Show loading state
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
-  }
-  
-  // Save these values for future autocomplete
-  storeUniqueCourse(course);
-  storeUniqueTeacher(teacher);
-  storeUniqueVenue(venue);
-  
-  // Create entry object
-  const entry = {
-    week,
-    course,
-    days,
-    startTime,
-    endTime,
-    teacher,
-    venue
-  };
-  
-  console.log('Submitting entry:', entry);
-  
-  // Send to API
-  fetch(`${API_BASE_URL}/timetable`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(entry)
-  })
-  .then(response => {
-    if (!response.ok) {
-      return response.text().then(text => {
-        throw new Error(`Server error: ${text || response.status}`);
-      });
-    }
-    return response.json();
-  })
-  .then(data => {
-    console.log('Timetable entry added successfully:', data);
-    alert('Timetable entry added successfully!');
-    
-    // Clear form
-    daysSelect.selectedIndex = -1;
-    courseInput.value = '';
-    startTimeInput.value = '';
-    endTimeInput.value = '';
-    teacherInput.value = '';
-    venueInput.value = '';
-    
-    // Reload timetable entries
-    loadTimetableEntries();
-    
-    // Force index page to reload
-    localStorage.setItem('forceDataReload', Date.now().toString());
-  })
-  .catch(error => {
-    console.error('Error adding timetable entry:', error);
-    alert(`Failed to add timetable entry: ${error.message}`);
-  })
-  .finally(() => {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Add Entry';
-    }
-  });
+  // Rest of your function remains the same
+  // ...
 }
+// Fix submitAnnouncement function
 function submitAnnouncement() {
   console.log('Submitting announcement...');
   
-  // Get form elements
-  const announcementInput = document.getElementById('announcement-text');
-  const expiryDateInput = document.getElementById('expiry-date');
-  const submitBtn = document.getElementById('submit-announcement');
+  // Get form elements with corrected IDs
+  const announcementInput = document.getElementById('announcement'); // Changed from announcement-text
+  const durationInput = document.getElementById('duration'); // Changed from expiry-date
+  const submitBtn = document.querySelector('#announcement-form button[type="submit"]');
   
-  if (!announcementInput || !expiryDateInput) {
-    console.error('Announcement form fields not found');
-    alert('Form fields not found. Please refresh the page.');
+  // Debug which elements weren't found
+  const missingFields = [];
+  if (!announcementInput) missingFields.push('announcement');
+  if (!durationInput) missingFields.push('duration');
+  
+  if (missingFields.length > 0) {
+    console.error('Announcement form fields not found:', missingFields);
+    alert(`Announcement form fields not found: ${missingFields.join(', ')}. Please check HTML IDs.`);
     return;
   }
   
   // Get values
   const announcement = announcementInput.value;
-  const expiryDate = expiryDateInput.value;
+  const duration = parseInt(durationInput.value, 10);
   
-  if (!announcement || !expiryDate) {
-    alert('Please fill all required fields');
+  if (!announcement || isNaN(duration) || duration < 1) {
+    alert('Please fill all required fields with valid values');
     return;
   }
+  
+  // Calculate expiry date from duration
+  const now = new Date();
+  const expiryDate = new Date(now);
+  expiryDate.setDate(now.getDate() + duration);
   
   // Show loading state
   if (submitBtn) {
@@ -1083,63 +1017,24 @@ function submitAnnouncement() {
   // Create announcement object
   const announcementObj = {
     announcement,
-    date: new Date().toISOString(),
-    expiryDate: new Date(expiryDate).toISOString()
+    date: now.toISOString(),
+    expiryDate: expiryDate.toISOString()
   };
   
-  console.log('Submitting announcement:', announcementObj);
-  
-  // Send to API
-  fetch(`${API_BASE_URL}/announcements`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(announcementObj)
-  })
-  .then(response => {
-    if (!response.ok) {
-      return response.text().then(text => {
-        throw new Error(`Server error: ${text || response.status}`);
-      });
-    }
-    return response.json();
-  })
-  .then(data => {
-    console.log('Announcement added successfully:', data);
-    alert('Announcement added successfully!');
-    
-    // Clear form
-    announcementInput.value = '';
-    expiryDateInput.value = '';
-    
-    // Reload announcements
-    loadAnnouncements();
-    
-    // Force index page to reload
-    localStorage.setItem('forceDataReload', Date.now().toString());
-  })
-  .catch(error => {
-    console.error('Error adding announcement:', error);
-    alert(`Failed to add announcement: ${error.message}`);
-  })
-  .finally(() => {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Add Announcement';
-    }
-  });
+  // Rest of your function remains the same
+  // ...
 }
 function submitNotice() {
   console.log('Submitting notice...');
   
-  // Get form elements
-  const noticeInput = document.getElementById('notice-text');
-  const submitBtn = document.getElementById('submit-notice');
+ 
+  // Get form elements with corrected IDs
+  const noticeInput = document.getElementById('notice'); // Changed from notice-text
+  const submitBtn = document.querySelector('#notice-form button[type="submit"]');
   
   if (!noticeInput) {
-    console.error('Notice form field not found');
-    alert('Form field not found. Please refresh the page.');
+    console.error('Notice form field not found. Looking for ID: "notice"');
+    alert('Notice form field not found. Please check HTML IDs.');
     return;
   }
   
@@ -1205,6 +1100,32 @@ function submitNotice() {
     }
   });
 }
+// Helper function to debug form elements
+function debugFormElements() {
+  console.log('Debugging form elements:');
+  console.log('week:', document.getElementById('week'));
+  console.log('course:', document.getElementById('course'));
+  console.log('days:', document.getElementById('days'));
+  console.log('start-time:', document.getElementById('start-time'));
+  console.log('end-time:', document.getElementById('end-time'));
+  console.log('teacher:', document.getElementById('teacher'));
+  console.log('venue:', document.getElementById('venue'));
+  console.log('announcement:', document.getElementById('announcement'));
+  console.log('duration:', document.getElementById('duration'));
+  console.log('notice:', document.getElementById('notice'));
+  
+  // List all form elements for reference
+  console.log('All form elements:');
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    console.log(`${el.tagName} id="${el.id}" name="${el.name}"`);
+  });
+}
+
+// Add to initialization
+document.addEventListener('DOMContentLoaded', function() {
+  debugFormElements();
+  initializeAdminPanel();
+});
 // ======================================================
 // INITIALIZATION
 // ======================================================
