@@ -452,107 +452,150 @@ function deleteEntry(type, id, event) { /* SINGLE implementation */
         });
     }
  }
-function clearAllEntries(event) { /* SINGLE implementation */ 
+function clearAllEntries(event) { 
   if (!confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
     return;
-}
+  }
 
-// Update button state
-const button = event ? event.target : document.getElementById('clear-all');
-const originalText = button ? button.textContent : 'Clear All Entries';
+  // Update button state
+  const button = event ? event.target : document.getElementById('clear-all');
+  const originalText = button ? button.textContent : 'Clear All Entries';
 
-if (button) {
+  if (button) {
     button.textContent = 'Clearing...';
     button.disabled = true;
-}
-
-console.log('Clearing all entries via API...');
-
-// Use both API and localStorage clearing to ensure complete removal
-
-// Step 1: Clear data via API with multiple fallbacks
-Promise.all([
-  // Clear timetable entries
-  fetch(`${API_BASE_URL}/timetable/clear?_nocache=${Date.now()}`, { 
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store'
-    }
-  }).catch(() => fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' }))
-    .catch(() => fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' })),
-  
-  // Clear announcements
-  fetch(`${API_BASE_URL}/announcements/clear?_nocache=${Date.now()}`, { 
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store'
-    }
-  }).catch(() => fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' }))
-    .catch(() => fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' })),
-  
-  // Clear notices
-  fetch(`${API_BASE_URL}/notices/clear?_nocache=${Date.now()}`, { 
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store'
-    }
-  }).catch(() => fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' }))
-    .catch(() => fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' }))
-])
-.then(() => {
-  console.log('API Clear completed, now syncing with localStorage');
-  
-  // Step 2: Also clear localStorage to ensure index page is updated
-  localStorage.removeItem('timetableEntries');
-  localStorage.removeItem('cachedTimetableData');
-  localStorage.removeItem('announcements');
-  localStorage.removeItem('notices');
-  localStorage.removeItem('timetableCache');
-  localStorage.removeItem('announcementsCache');
-  localStorage.removeItem('noticesCache');
-  
-  // Step 3: Set markers for other pages to know data was cleared
-  const timestamp = Date.now().toString();
-  localStorage.setItem('forceDataReload', timestamp);
-  localStorage.setItem('clearCache', 'true');
-  localStorage.setItem('timetableUpdated', timestamp);
-  localStorage.setItem('announcementsUpdated', timestamp);
-  localStorage.setItem('noticesUpdated', timestamp);
-  
-  // Step 4: Reload our own display with force cache bypass
-  clearAndReloadTimetable();
-  clearAndReloadAnnouncements();
-  clearAndReloadNotices();
-  
-  // Step 5: Broadcast a message to other windows/tabs
-  try {
-    const bc = new BroadcastChannel('uni_schedule_updates');
-    bc.postMessage({ 
-      type: 'all-data-cleared',
-      timestamp: timestamp
-    });
-    bc.close();
-  } catch(e) {
-    console.log('BroadcastChannel not supported');
   }
+
+  console.log('Clearing all entries via API...');
   
-  alert('All entries cleared successfully!');
-})
-.catch(error => {
-  console.error('Error clearing entries:', error);
-  alert('Error clearing entries. Please try again.');
-})
-.finally(() => {
-  if (button) {
-    button.textContent = originalText;
-    button.disabled = false;
-  }
-});
+  // Track deletion success
+  let deletionSuccessful = true;
+  
+  // First approach: Try bulk delete endpoint
+  const deleteAllTimetable = fetch(`${API_BASE_URL}/timetable`, { 
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store'
+    }
+  })
+  .then(response => {
+    if (!response.ok) {
+      console.error(`Bulk delete failed with status ${response.status}`);
+      deletionSuccessful = false;
+      return false;
+    }
+    return true;
+  })
+  .catch(error => {
+    console.error('Error in bulk delete:', error);
+    deletionSuccessful = false;
+    return false;
+  });
+  
+  const deleteAllAnnouncements = fetch(`${API_BASE_URL}/announcements`, { 
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store'
+    }
+  })
+  .then(response => {
+    if (!response.ok) {
+      deletionSuccessful = false;
+      return false;
+    }
+    return true;
+  })
+  .catch(() => {
+    deletionSuccessful = false;
+    return false;
+  });
+  
+  const deleteAllNotices = fetch(`${API_BASE_URL}/notices`, { 
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store'
+    }
+  })
+  .then(response => {
+    if (!response.ok) {
+      deletionSuccessful = false;
+      return false;
+    }
+    return true;
+  })
+  .catch(() => {
+    deletionSuccessful = false;
+    return false;
+  });
+  
+  // Execute all delete operations
+  Promise.all([deleteAllTimetable, deleteAllAnnouncements, deleteAllNotices])
+  .then(() => {
+    if (!deletionSuccessful) {
+      throw new Error('One or more deletion operations failed');
+    }
+    
+    console.log('API Clear completed, now syncing with localStorage');
+    
+    // Clear localStorage 
+    localStorage.removeItem('timetableEntries');
+    localStorage.removeItem('cachedTimetableData');
+    localStorage.removeItem('announcements');
+    localStorage.removeItem('notices');
+    localStorage.removeItem('timetableCache');
+    localStorage.removeItem('announcementsCache');
+    localStorage.removeItem('noticesCache');
+    
+    // Wait 500ms before reloading to let server process the deletes
+    setTimeout(() => {
+      // Force display clear without reloading from API
+      displayTimetableEntries([]);
+      displayAnnouncements([]);
+      displayNotices([]);
+      
+      // Set markers for other pages to know data was cleared
+      const timestamp = Date.now().toString();
+      localStorage.setItem('forceDataReload', timestamp);
+      localStorage.setItem('clearCache', 'true');
+      localStorage.setItem('timetableUpdated', timestamp);
+      localStorage.setItem('announcementsUpdated', timestamp);
+      localStorage.setItem('noticesUpdated', timestamp);
+      
+      // Broadcast a message to other windows/tabs
+      try {
+        const bc = new BroadcastChannel('uni_schedule_updates');
+        bc.postMessage({ 
+          type: 'all-data-cleared',
+          timestamp: timestamp
+        });
+        bc.close();
+      } catch(e) {
+        console.log('BroadcastChannel not supported');
+      }
+      
+      alert('All entries cleared successfully!');
+      
+      // Only now reload data from API after 1 second delay
+      // to ensure server has processed changes
+      setTimeout(() => {
+        loadAllData();
+      }, 1000);
+    }, 500);
+  })
+  .catch(error => {
+    console.error('Error clearing entries:', error);
+    alert('Error clearing entries. Please try again or contact support.');
+  })
+  .finally(() => {
+    if (button) {
+      button.textContent = originalText;
+      button.disabled = false;
+    }
+  });
 }
-// Enhanced clearAndReloadTimetable function
 function clearAndReloadTimetable() {
   console.log("FORCE RELOADING TIMETABLE WITH CACHE BYPASS");
   
@@ -586,8 +629,6 @@ function clearAndReloadTimetable() {
     displayTimetableEntries([]);
   });
 }
-
-// Enhanced clearAndReloadAnnouncements function
 function clearAndReloadAnnouncements() {
   console.log("FORCE RELOADING ANNOUNCEMENTS WITH CACHE BYPASS");
   
@@ -619,8 +660,6 @@ function clearAndReloadAnnouncements() {
     displayAnnouncements([]);
   });
 }
-
-// Enhanced clearAndReloadNotices function
 function clearAndReloadNotices() {
   console.log("FORCE RELOADING NOTICES WITH CACHE BYPASS");
   
@@ -652,10 +691,85 @@ function clearAndReloadNotices() {
     displayNotices([]);
   });
 }
+// Add this function for individual item deletion as fallback
+function forceDeleteAllItemsIndividually() {
+  console.log('Attempting individual item deletion as fallback...');
+  
+  // Get all current items
+  Promise.all([
+    fetch(`${API_BASE_URL}/timetable`).then(r => r.json()).catch(() => []),
+    fetch(`${API_BASE_URL}/announcements`).then(r => r.json()).catch(() => []),
+    fetch(`${API_BASE_URL}/notices`).then(r => r.json()).catch(() => [])
+  ])
+  .then(([timetableEntries, announcements, notices]) => {
+    console.log(`Found ${timetableEntries.length} timetable entries, ${announcements.length} announcements, ${notices.length} notices to delete`);
+    
+    // Create deletion promises for each item
+    const deletionPromises = [];
+    
+    // Delete timetable entries one by one
+    timetableEntries.forEach(entry => {
+      if (entry.id) {
+        deletionPromises.push(
+          fetch(`${API_BASE_URL}/timetable/${entry.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(e => console.error(`Failed to delete timetable entry ${entry.id}:`, e))
+        );
+      }
+    });
+    
+    // Delete announcements one by one
+    announcements.forEach(announcement => {
+      if (announcement.id) {
+        deletionPromises.push(
+          fetch(`${API_BASE_URL}/announcements/${announcement.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(e => console.error(`Failed to delete announcement ${announcement.id}:`, e))
+        );
+      }
+    });
+    
+    // Delete notices one by one
+    notices.forEach(notice => {
+      if (notice.id) {
+        deletionPromises.push(
+          fetch(`${API_BASE_URL}/notices/${notice.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(e => console.error(`Failed to delete notice ${notice.id}:`, e))
+        );
+      }
+    });
+    
+    // Execute all individual deletions
+    return Promise.all(deletionPromises);
+  })
+  .then(() => {
+    console.log('Individual item deletion completed');
+    // Clear local storage and update UI
+    localStorage.removeItem('timetableEntries');
+    localStorage.removeItem('announcements');
+    localStorage.removeItem('notices');
+    
+    // Clear displays
+    displayTimetableEntries([]);
+    displayAnnouncements([]);
+    displayNotices([]);
+    
+    alert('All entries have been cleared.');
+  })
+  .catch(error => {
+    console.error('Error in individual deletion:', error);
+    alert('Some items may not have been deleted. Please refresh and try again.');
+  });
+}
 
 // ======================================================
 // PDF GENERATION FUNCTIONS
 // ======================================================
+
 function generatePDF() { /* your implementation */
   console.log('Generating PDF...');
   
@@ -770,7 +884,7 @@ function generatePDF() { /* your implementation */
       container.appendChild(errorMsg);
       finalizePDF(container);
     });
- }
+}
 function finalizePDF(container) { /* your implementation */ 
    // Add container to document temporarily
    document.body.appendChild(container);
@@ -812,7 +926,7 @@ function formatSingleTime(time) {
 }
 
 return `${formatSingleTime(times[0])} - ${formatSingleTime(times[1])}`;
- }
+}
 
 // ======================================================
 // SETUP FUNCTIONS
@@ -845,7 +959,6 @@ function setupUserInfo() { /* your implementation */
     });
   }
 }
-// Enhanced setupClearAllButton function
 function setupClearAllButton() {
   console.log('Setting up Clear All button...');
   
@@ -996,8 +1109,7 @@ function setupFormHandlers() { /* your implementation */
 // ======================================================
 // SUBMISSION HANDLERS
 // ======================================================
-// Complete fixed submitTimetableEntry function
-// Fixed submitTimetableEntry function
+
 function submitTimetableEntry() {
   console.log('Submitting timetable entry...');
   
@@ -1147,7 +1259,6 @@ function submitTimetableEntry() {
     }
   });
 }
-// Complete implementation of submitAnnouncement function
 function submitAnnouncement() {
   console.log('Submitting announcement...');
   
