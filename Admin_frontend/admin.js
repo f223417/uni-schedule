@@ -289,80 +289,7 @@ document.getElementById('timetable-form').addEventListener('submit', function(ev
     });
 });
 
-function updateTimetable() {
-    const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
-    fetch(`${API_BASE_URL}/timetable`)
-        .then(response => response.json())
-        .then(timetableEntries => {
-            const tbody = document.querySelector('#admin-timetable tbody');
-            
-            if (!tbody) {
-                console.error('Timetable tbody not found');
-                return;
-            }
-            
-            tbody.innerHTML = '';
 
-            if (timetableEntries.length === 0) {
-                const row = document.createElement('tr');
-                const cell = document.createElement('td');
-                cell.colSpan = 7;
-                cell.textContent = 'No timetable entries available';
-                cell.style.textAlign = 'center';
-                cell.style.padding = '20px';
-                row.appendChild(cell);
-                tbody.appendChild(row);
-                return;
-            }
-
-            timetableEntries.forEach((entry, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${entry.week}</td>
-                    <td>${entry.course || ''}</td>
-                    <td>${entry.days ? entry.days.split(',').join(', ') : ''}</td>
-                    <td>${entry.startTime} - ${entry.endTime}</td>
-                    <td>${entry.teacher || ''}</td>
-                    <td>${entry.venue || ''}</td>
-                    <td>
-                        <button class="delete-btn" data-id="${entry.id}">Delete</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    deleteTimetableEntry(id);
-                });
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching timetable entries:', error);
-            const tbody = document.querySelector('#admin-timetable tbody');
-            if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="7">Error loading timetable.</td></tr>';
-            }
-        });
-}
-
-function deleteTimetableEntry(id) {
-    if (confirm('Are you sure you want to delete this timetable entry?')) {
-        fetch(`${API_BASE_URL}/timetable/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data.message);
-            updateTimetable();
-        })
-        .catch(error => {
-            console.error('Error deleting entry:', error);
-            alert('Error deleting timetable entry.');
-        });
-    }
-}
 
 // Handle announcement form submission
 document.getElementById('announcement-form').addEventListener('submit', function(event) {
@@ -440,72 +367,6 @@ document.getElementById('notice-form').addEventListener('submit', function(event
     });
 });
 
-// Update timetable in admin view
-function updateTimetable() {
-    fetch(`${API_BASE_URL}/timetable`)
-        .then(response => response.json())
-        .then(timetableEntries => {
-            const tbody = document.querySelector('#admin-timetable tbody');
-            tbody.innerHTML = '';
-
-            if (timetableEntries.length === 0) {
-                const row = document.createElement('tr');
-                const cell = document.createElement('td');
-                cell.colSpan = 7;
-                cell.textContent = 'No timetable entries available';
-                cell.style.textAlign = 'center';
-                cell.style.padding = '20px';
-                row.appendChild(cell);
-                tbody.appendChild(row);
-                return;
-            }
-
-            timetableEntries.forEach((entry, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${entry.week}</td>
-                    <td>${entry.course || ''}</td>
-                    <td>${entry.days ? entry.days.split(',').join(', ') : ''}</td>
-                    <td>${entry.startTime} - ${entry.endTime}</td>
-                    <td>${entry.teacher || ''}</td>
-                    <td>${entry.venue || ''}</td>
-                    <td>
-                        <button class="delete-btn" data-id="${entry.id}">Delete</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    deleteTimetableEntry(id);
-                });
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching timetable entries:', error);
-            tbody.innerHTML = '<tr><td colspan="7">Error loading timetable.</td></tr>';
-        });
-}
-
-// Delete a timetable entry
-function deleteTimetableEntry(id) {
-    if (confirm('Are you sure you want to delete this timetable entry?')) {
-        fetch(`${API_BASE_URL}/timetable/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data.message);
-            updateTimetable();
-        })
-        .catch(error => {
-            console.error('Error deleting entry:', error);
-            alert('Error deleting timetable entry.');
-        });
-    }
-}
 
 // Update announcements in admin view
 function updateAnnouncements() {
@@ -543,7 +404,7 @@ function updateAnnouncements() {
             document.querySelectorAll('.delete-btn[data-type="announcement"]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
-                    deleteAnnouncement(id);
+                    deleteEntry('announcement', id);
                 });
             });
         })
@@ -588,7 +449,7 @@ function updateNotices() {
             document.querySelectorAll('.delete-btn[data-type="notice"]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
-                    deleteNotice(id);
+                    deleteEntry('notice', id);
                 });
             });
         })
@@ -599,39 +460,106 @@ function updateNotices() {
 }
 
 // Delete an announcement
-function deleteAnnouncement(id) {
-    if (confirm('Are you sure you want to delete this announcement?')) {
-        fetch(`${API_BASE_URL}/announcements/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data.message);
-            updateAnnouncements();
-        })
-        .catch(error => {
-            console.error('Error deleting announcement:', error);
-            alert('Error deleting announcement.');
-        });
-    }
-}
+function deleteEntry(type, id, event) {
+  const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
+  if (!id) {
+    console.error('Missing ID for delete operation');
+    return;
+  }
 
-// Delete a notice
-function deleteNotice(id) {
-    if (confirm('Are you sure you want to delete this notice?')) {
-        fetch(`${API_BASE_URL}/notices/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data.message);
-            updateNotices();
-        })
-        .catch(error => {
-            console.error('Error deleting notice:', error);
-            alert('Error deleting notice.');
-        });
+  if (confirm(`Are you sure you want to delete this item?`)) {
+    // Show loading state
+    if (button) {
+      button.textContent = 'Deleting...';
+      button.disabled = true;
     }
+    
+    // Build endpoint URL
+    let endpoint = `${API_BASE_URL}/${type === 'timetable' ? 'timetable' : type === 'announcement' ? 'announcements' : 'notices'}/${id}`;
+    
+    console.log(`DELETING: Sending request to ${endpoint}`);
+    
+    // IMPORTANT: Add random parameter to prevent caching
+    const noCache = Date.now();
+    endpoint = endpoint + `?_nocache=${noCache}`;
+    
+    // Make delete request
+    fetch(endpoint, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+    .then(response => {
+      console.log(`DELETING: Status code: ${response.status}`);
+      if (!response.ok) {
+        return response.text().then(text => {
+          throw new Error(`Server error: ${text || response.status}`);
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`DELETING: Success response:`, data);
+      
+      // CRITICAL FIX: Force index page to reload by using a timestamp in localStorage
+      localStorage.setItem('forceDataReload', Date.now().toString());
+      
+      // Also try to use the broadcast channel
+      try {
+        const bc = new BroadcastChannel('uni_schedule_updates');
+        bc.postMessage({ 
+          type: 'entry-deleted', 
+          entryType: type,
+          entryId: id,
+          timestamp: Date.now()
+        });
+        bc.close();
+      } catch(e) {
+        console.log('BroadcastChannel not supported');
+      }
+      
+      // Hard refresh if it's the last item - this is the key fix
+      const isLastItem = document.querySelectorAll(`[data-type="${type}"]`).length <= 1;
+      if (isLastItem) {
+        console.log("DELETING LAST ITEM - FORCING COMPLETE REFRESH");
+        // Completely clear caches
+        localStorage.setItem('clearCache', 'true');
+        
+        // Reload current view with cache bypass
+        if (type === 'timetable') {
+          clearAndReloadTimetable();
+        } else if (type === 'announcement') {
+          clearAndReloadAnnouncements();
+        } else if (type === 'notice') {
+          clearAndReloadNotices();
+        }
+      } else {
+        // Normal reload for non-last items
+        if (type === 'timetable') {
+          loadTimetableEntries(false);
+        } else if (type === 'announcement') {
+          loadAnnouncements(false);
+        } else if (type === 'notice') {
+          loadNotices(false);
+        }
+      }
+    })
+    .catch(error => {
+      console.error(`DELETING: Error:`, error);
+      alert(`Delete failed. ${error.message}`);
+    })
+    .finally(() => {
+      // Reset button state
+      if (button) {
+        button.textContent = 'Delete';
+        button.disabled = false;
+      }
+    });
+  }
 }
 
 // Reset time slots to default
@@ -843,7 +771,7 @@ function updateTimetable() {
             document.querySelectorAll('.delete-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
-                    deleteTimetableEntry(id);
+                    deleteEntry('timetable', id);
                 });
             });
         })
@@ -891,7 +819,7 @@ function updateAnnouncements() {
             document.querySelectorAll('.delete-btn[data-type="announcement"]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
-                    deleteAnnouncement(id);
+                    deleteEntry('announcement', id);
                 });
             });
         })
@@ -935,7 +863,7 @@ function updateNotices() {
             document.querySelectorAll('.delete-btn[data-type="notice"]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
-                    deleteNotice(id);
+                    deleteEntry('notice', id);
                 });
             });
         })
@@ -999,22 +927,6 @@ let notices = [];
 
 
 
-// Function to load all data when the admin page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Load all data types
-    loadAllData();
-    
-    // Set up form submission handlers
-    setupFormHandlers();
-});
-
-function loadAllData() {
-    console.log("Loading all data for admin view...");
-    loadTimetableEntries();
-    loadAnnouncements();
-    loadNotices();
-}
-
 // Function to load timetable entries
 function loadTimetableEntries() {
     fetch(`${API_BASE_URL}/timetable`)
@@ -1030,20 +942,6 @@ function loadTimetableEntries() {
         });
 }
 
-// Function to load announcements
-function loadAnnouncements() {
-    fetch(`${API_BASE_URL}/announcements`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('Announcements loaded:', data);
-            announcements = data;
-            displayAnnouncements(data);
-        })
-        .catch(error => {
-            console.error('Error loading announcements:', error);
-            alert('Failed to load announcements. See console for details.');
-        });
-}
 
 // Function to load notices
 function loadNotices() {
@@ -1090,12 +988,6 @@ function setupFormHandlers() {
     }
 }
 
-// Function to display timetable entries
-
-// Function to display announcements
-
-
-// Function to display notices
 
 // Function to submit timetable entry
 function submitTimetableEntry() {
@@ -1228,116 +1120,6 @@ function submitNotice() {
         console.error('Error:', error);
         alert(`Error adding notice: ${error.message}`);
     });
-}
-
-// Delete functions
-function deleteTimetableEntry(id) {
-    if (confirm('Are you sure you want to delete this entry?')) {
-        fetch(`${API_BASE_URL}/timetable/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Entry deleted successfully!');
-                loadAllData(); // Reload everything
-            } else {
-                alert(`Failed to delete entry: ${data.message}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert(`Error deleting entry: ${error.message}`);
-        });
-    }
-}
-
-function deleteAnnouncement(id) {
-    if (confirm('Are you sure you want to delete this announcement?')) {
-        fetch(`${API_BASE_URL}/announcements/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Announcement deleted successfully!');
-                loadAllData(); // Reload everything
-            } else {
-                alert(`Failed to delete announcement: ${data.message}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert(`Error deleting announcement: ${error.message}`);
-        });
-    }
-}
-
-function deleteNotice(id) {
-    if (confirm('Are you sure you want to delete this notice?')) {
-        fetch(`${API_BASE_URL}/notices/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Notice deleted successfully!');
-                loadAllData(); // Reload everything
-            } else {
-                alert(`Failed to delete notice: ${data.message}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert(`Error deleting notice: ${error.message}`);
-        });
-    }
-}
-
-// Add this at the top of your file
-document.addEventListener('DOMContentLoaded', function() {
-    // Load all data when page loads
-    console.log('Admin page loaded - fetching all data');
-    loadAllData();
-    
-    // Set up form submission handlers
-    setupFormHandlers();
-});
-
-// Add this function to load everything
-function loadAllData() {
-    // Load timetable entries
-    fetch('/api/timetable')
-        .then(response => response.json())
-        .then(data => {
-            console.log('Loaded timetable entries:', data);
-            displayTimetableEntries(data);
-        })
-        .catch(error => {
-            console.error('Error loading timetable entries:', error);
-        });
-        
-    // Load announcements
-    fetch('/api/announcements')
-        .then(response => response.json())
-        .then(data => {
-            console.log('Loaded announcements:', data);
-            displayAnnouncements(data);
-        })
-        .catch(error => {
-            console.error('Error loading announcements:', error);
-        });
-        
-    // Load notices
-    fetch('/api/notices')
-        .then(response => response.json())
-        .then(data => {
-            console.log('Loaded notices:', data);
-            displayNotices(data);
-        })
-        .catch(error => {
-            console.error('Error loading notices:', error);
-        });
 }
 
 // Ensure the download button has the correct event listener
@@ -1574,13 +1356,7 @@ document.addEventListener('DOMContentLoaded', function() {
     startPolling();
 });
 
-// Ensure the loadAllData function is correctly defined
-function loadAllData() {
-    console.log("Loading all data for admin view...");
-    loadTimetableEntries();
-    loadAnnouncements();
-    loadNotices();
-}
+
 
 // Function to load timetable entries
 function loadTimetableEntries(showAlerts = true) {
@@ -1605,28 +1381,6 @@ function loadTimetableEntries(showAlerts = true) {
     });
 }
 
-// Function to load announcements
-function loadAnnouncements(showAlerts = true) {
-  console.log('Loading announcements from API...');
-  fetch(`${API_BASE_URL}/announcements`)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log(`Loaded ${data.length} announcements`);
-      displayAnnouncements(data);
-    })
-    .catch(error => {
-      console.error('Error loading announcements:', error);
-      displayAnnouncements([]);
-      if (showAlerts) {
-        alert('Failed to load announcements. See console for details.');
-      }
-    });
-}
 
 // Function to load notices
 function loadNotices(showAlerts = true) {
@@ -1725,7 +1479,7 @@ function displayAnnouncements(announcements) {
   document.querySelectorAll('button[data-type="announcement"]').forEach(button => {
       button.addEventListener('click', function() {
           const id = this.getAttribute('data-id');
-          deleteAnnouncement(id);
+          deleteEntry('announcement', id);
       });
   });
 }
@@ -1763,7 +1517,7 @@ function displayNotices(notices) {
   document.querySelectorAll('button[data-type="notice"]').forEach(button => {
       button.addEventListener('click', function() {
           const id = this.getAttribute('data-id');
-          deleteNotice(id);
+          deleteEntry('notice', id);
       });
   });
 }
@@ -1773,8 +1527,7 @@ function displayNotices(notices) {
  * This function creates a modal dialog to view and manage all saved autocomplete data
  */
 function manageSavedData() {
-    console.log('Managing saved data from API...');
-    
+        console.log('Managing saved data from API...');
     // Create modal container immediately to show loading state
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -2005,8 +1758,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Consolidated delete function for all entry types
-
 // Function to broadcast data changes to other pages
 function broadcastDataChange() {
   // Use localStorage to communicate with index page
@@ -2022,93 +1773,80 @@ function broadcastDataChange() {
   }
 }
 
-// Clear all entries function that properly handles API communication
+// Clear all entries function - FIXED
 function clearAllEntries(event) {
-  if (confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
-    const button = event ? event.target : document.getElementById('clear-all');
-    let originalText = button ? button.textContent : '';
-
-    if (button) {
-      button.textContent = 'Clearing...';
-      button.disabled = true;
-    }
-
-    console.log('Clearing all entries via API...');
-
-    // Try multiple endpoint patterns sequentially for each data type
-    clearTimetableEntries()
-      .then(() => clearAnnouncementEntries())
-      .then(() => clearNoticeEntries())
-      .then(() => {
-        console.log('All entries cleared successfully');
-        
-        // Force index page to reload data
-        broadcastDataChange();
-        
-        // Reload admin views
-        loadTimetableEntries(false);
-        loadAnnouncements(false);
-        loadNotices(false);
-        
-        alert('All entries cleared successfully!');
-      })
-      .catch(error => {
-        console.error('Error clearing entries:', error);
-        alert('Error clearing entries. Please try again.');
-      })
-      .finally(() => {
-        if (button) {
-          button.textContent = originalText;
-          button.disabled = false;
-        }
-      });
+  if (!confirm('Are you sure you want to clear ALL entries? This cannot be undone.')) {
+    return;
   }
-}
-
-// Helper functions for clearing different entry types
-function clearTimetableEntries() {
-  return fetch(`${API_BASE_URL}/timetable/clear`, { 
-    method: 'DELETE',
-    headers: { 'Cache-Control': 'no-cache, no-store' }
-  })
-  .catch(() => {
-    console.log('Trying alternative timetable clear endpoint...');
-    return fetch(`${API_BASE_URL}/timetable/all`, { method: 'DELETE' });
-  })
-  .catch(() => {
-    console.log('Trying base timetable delete endpoint...');
-    return fetch(`${API_BASE_URL}/timetable`, { method: 'DELETE' });
-  });
-}
-
-function clearAnnouncementEntries() {
-  return fetch(`${API_BASE_URL}/announcements/clear`, { 
-    method: 'DELETE',
-    headers: { 'Cache-Control': 'no-cache, no-store' }
-  })
-  .catch(() => {
-    console.log('Trying alternative announcements clear endpoint...');
-    return fetch(`${API_BASE_URL}/announcements/all`, { method: 'DELETE' });
-  })
-  .catch(() => {
-    console.log('Trying base announcements delete endpoint...');
-    return fetch(`${API_BASE_URL}/announcements`, { method: 'DELETE' });
-  });
-}
-
-function clearNoticeEntries() {
-  return fetch(`${API_BASE_URL}/notices/clear`, { 
-    method: 'DELETE',
-    headers: { 'Cache-Control': 'no-cache, no-store' }
-  })
-  .catch(() => {
-    console.log('Trying alternative notices clear endpoint...');
-    return fetch(`${API_BASE_URL}/notices/all`, { method: 'DELETE' });
-  })
-  .catch(() => {
-    console.log('Trying base notices delete endpoint...');
-    return fetch(`${API_BASE_URL}/notices`, { method: 'DELETE' });
-  });
+  
+  // Update button state
+  const button = event ? event.target : document.getElementById('clear-all');
+  const originalText = button ? button.textContent : 'Clear All Entries';
+  
+  if (button) {
+    button.textContent = 'Clearing...';
+    button.disabled = true;
+  }
+  
+  console.log('Clearing all entries via API...');
+  
+  // Try multiple endpoint patterns for each data type
+  const clearTimetable = () => {
+    return fetch(`${API_BASE_URL}/timetable/clear?_nocache=${Date.now()}`, { 
+      method: 'DELETE',
+      headers: { 'Cache-Control': 'no-cache, no-store' }
+    })
+    .catch(() => fetch(`${API_BASE_URL}/timetable/all?_nocache=${Date.now()}`, { method: 'DELETE' }))
+    .catch(() => fetch(`${API_BASE_URL}/timetable?_nocache=${Date.now()}`, { method: 'DELETE' }));
+  };
+  
+  const clearAnnouncements = () => {
+    return fetch(`${API_BASE_URL}/announcements/clear?_nocache=${Date.now()}`, { 
+      method: 'DELETE',
+      headers: { 'Cache-Control': 'no-cache, no-store' }
+    })
+    .catch(() => fetch(`${API_BASE_URL}/announcements/all?_nocache=${Date.now()}`, { method: 'DELETE' }))
+    .catch(() => fetch(`${API_BASE_URL}/announcements?_nocache=${Date.now()}`, { method: 'DELETE' }));
+  };
+  
+  const clearNotices = () => {
+    return fetch(`${API_BASE_URL}/notices/clear?_nocache=${Date.now()}`, { 
+      method: 'DELETE',
+      headers: { 'Cache-Control': 'no-cache, no-store' }
+    })
+    .catch(() => fetch(`${API_BASE_URL}/notices/all?_nocache=${Date.now()}`, { method: 'DELETE' }))
+    .catch(() => fetch(`${API_BASE_URL}/notices?_nocache=${Date.now()}`, { method: 'DELETE' }));
+  };
+  
+  // Execute all clear operations in sequence
+  clearTimetable()
+    .then(() => clearAnnouncements())
+    .then(() => clearNotices())
+    .then(() => {
+      console.log('All entries cleared successfully');
+      
+      // Force cache invalidation for index pages
+      localStorage.setItem('forceDataReload', Date.now().toString());
+      localStorage.setItem('clearCache', 'true');
+      
+      // Reload all data with cache bypass
+      clearAndReloadTimetable();
+      clearAndReloadAnnouncements();
+      clearAndReloadNotices();
+      
+      alert('All entries cleared successfully!');
+    })
+    .catch(error => {
+      console.error('Error clearing entries:', error);
+      alert('Error clearing entries. Please try again.');
+    })
+    .finally(() => {
+      // Reset button state
+      if (button) {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    });
 }
 
 // Modified data loading functions to avoid unnecessary alerts
@@ -2256,108 +1994,6 @@ function checkForDataUpdates() {
   }
 }
 
-// 1. DELETE FUNCTION - FIXED FOR LAST ENTRY ISSUE
-function deleteEntry(type, id, event) {
-  const button = event ? event.target : document.querySelector(`button[data-id="${id}"][data-type="${type}"]`);
-  if (!id) {
-    console.error('Missing ID for delete operation');
-    return;
-  }
-
-  if (confirm(`Are you sure you want to delete this item?`)) {
-    // Show loading state
-    if (button) {
-      button.textContent = 'Deleting...';
-      button.disabled = true;
-    }
-    
-    // Build endpoint URL
-    let endpoint = `${API_BASE_URL}/${type === 'timetable' ? 'timetable' : type === 'announcement' ? 'announcements' : 'notices'}/${id}`;
-    
-    console.log(`DELETING: Sending request to ${endpoint}`);
-    
-    // IMPORTANT: Add random parameter to prevent caching
-    const noCache = Date.now();
-    endpoint = endpoint + `?_nocache=${noCache}`;
-    
-    // Make delete request
-    fetch(endpoint, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    })
-    .then(response => {
-      console.log(`DELETING: Status code: ${response.status}`);
-      if (!response.ok) {
-        return response.text().then(text => {
-          throw new Error(`Server error: ${text || response.status}`);
-        });
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log(`DELETING: Success response:`, data);
-      
-      // CRITICAL FIX: Force index page to reload by using a timestamp in localStorage
-      localStorage.setItem('forceDataReload', Date.now().toString());
-      
-      // Also try to use the broadcast channel
-      try {
-        const bc = new BroadcastChannel('uni_schedule_updates');
-        bc.postMessage({ 
-          type: 'entry-deleted', 
-          entryType: type,
-          entryId: id,
-          timestamp: Date.now()
-        });
-        bc.close();
-      } catch(e) {
-        console.log('BroadcastChannel not supported');
-      }
-      
-      // Hard refresh if it's the last item - this is the key fix
-      const isLastItem = document.querySelectorAll(`[data-type="${type}"]`).length <= 1;
-      if (isLastItem) {
-        console.log("DELETING LAST ITEM - FORCING COMPLETE REFRESH");
-        // Completely clear caches
-        localStorage.setItem('clearCache', 'true');
-        
-        // Reload current view with cache bypass
-        if (type === 'timetable') {
-          clearAndReloadTimetable();
-        } else if (type === 'announcement') {
-          clearAndReloadAnnouncements();
-        } else if (type === 'notice') {
-          clearAndReloadNotices();
-        }
-      } else {
-        // Normal reload for non-last items
-        if (type === 'timetable') {
-          loadTimetableEntries(false);
-        } else if (type === 'announcement') {
-          loadAnnouncements(false);
-        } else if (type === 'notice') {
-          loadNotices(false);
-        }
-      }
-    })
-    .catch(error => {
-      console.error(`DELETING: Error:`, error);
-      alert(`Delete failed. ${error.message}`);
-    })
-    .finally(() => {
-      // Reset button state
-      if (button) {
-        button.textContent = 'Delete';
-        button.disabled = false;
-      }
-    });
-  }
-}
 
 // 2. SPECIAL FUNCTION TO HANDLE LAST ITEM DELETION
 function clearAndReloadTimetable() {
@@ -2502,3 +2138,126 @@ function forceReloadAllData() {
   // Similarly reload announcements and notices
   // [Add similar code for announcements and notices]
 }
+
+// Clean event handler setup - Add to your admin.js file
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Setting up clean event handlers');
+  
+  // Set up the Clear All button
+  const clearAllBtn = document.getElementById('clear-all');
+  if (clearAllBtn) {
+    // Remove any existing handlers by cloning
+    const newBtn = clearAllBtn.cloneNode(true);
+    clearAllBtn.parentNode.replaceChild(newBtn, clearAllBtn);
+    
+    // Add event listener to the new button
+    newBtn.addEventListener('click', clearAllEntries);
+    
+    // Remove inline onclick attribute if it exists
+    newBtn.removeAttribute('onclick');
+    console.log('Clear All button handler attached');
+  }
+  
+  // Set up global event delegation for delete buttons
+  document.body.addEventListener('click', function(event) {
+    const target = event.target;
+    
+    if (target.classList.contains('delete-btn')) {
+      const id = target.getAttribute('data-id');
+      const type = target.getAttribute('data-type') || 'timetable';
+      
+      if (id) {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteEntry(type, id, event);
+      }
+    }
+  });
+  
+  // Initial data load
+  loadAllData();
+});
+
+
+
+// Function to load all data from the API with cache busting
+function loadAllData() {
+  console.log('Loading all data from API with cache busting...');
+  const cacheBuster = Date.now();
+  
+  // Load timetable entries
+  fetch(`${API_BASE_URL}/timetable?_nocache=${cacheBuster}`, {
+    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Loaded ${data.length} timetable entries`);
+    displayTimetableEntries(data);
+  })
+  .catch(error => {
+    console.error('Error loading timetable entries:', error);
+    displayTimetableEntries([]);
+  });
+  
+  // Load announcements
+  fetch(`${API_BASE_URL}/announcements?_nocache=${cacheBuster}`, {
+    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Loaded ${data.length} announcements`);
+    displayAnnouncements(data);
+  })
+  .catch(error => {
+    console.error('Error loading announcements:', error);
+    displayAnnouncements([]);
+  });
+  
+  // Load notices
+  fetch(`${API_BASE_URL}/notices?_nocache=${cacheBuster}`, {
+    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Loaded ${data.length} notices`);
+    displayNotices(data);
+  })
+  .catch(error => {
+    console.error('Error loading notices:', error);
+    displayNotices([]);
+  });
+  
+  // Signal update to other tabs/windows
+  localStorage.setItem('dataUpdated', cacheBuster.toString());
+}
+
+// Single initialization function 
+function initializeAdminPanel() {
+  console.log('Initializing admin panel...');
+  
+  // 1. Set up authentication/user info
+  setupUserInfo();
+  
+  // 2. Load all data
+  loadAllData();
+  
+  // 3. Set up form handlers
+  setupFormHandlers();
+  
+  // 4. Set up clear all button
+  setupClearAllButton();
+  
+  // 5. Set up manage data button
+  setupManageDataButton();
+  
+  // 6. Set up any other buttons
+  setupOtherButtons();
+  
+  console.log('Admin panel initialization complete');
+}
+
+// Single DOMContentLoaded handler
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM ready, initializing admin panel...');
+  initializeAdminPanel();
+});
