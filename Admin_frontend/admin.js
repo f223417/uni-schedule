@@ -1579,6 +1579,7 @@ function submitTimetableEntry() {
     body: JSON.stringify(entry)
   })
   .then(response => {
+    console.log('Received response:', response);
     if (!response.ok) {
       return response.text().then(text => {
         throw new Error(`Server error: ${text || response.status}`);
