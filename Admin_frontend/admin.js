@@ -1498,16 +1498,6 @@ function submitTimetableEntry() {
   const venueInput = document.getElementById('venue');
   const submitBtn = document.querySelector('#timetable-form button[type="submit"]');
   
-  // Debug form elements to see what's found
-  console.log('Form elements:');
-  console.log('Week:', weekInput);
-  console.log('Course:', courseInput);
-  console.log('Day checkboxes:', dayCheckboxes.length);
-  console.log('Start Time:', startTimeInput);
-  console.log('End Time:', endTimeInput);
-  console.log('Teacher:', teacherInput);
-  console.log('Venue:', venueInput);
-  
   // Check for missing fields
   const missingFields = [];
   if (!weekInput) missingFields.push('week');
