@@ -14,7 +14,7 @@ const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
                      localStorage.getItem('adminLoggedIn') === 'true';
   
   if (!isLoggedIn) {
-      //window.location.href = 'login.html';
+      window.location.href = 'login.html';
       return;
   }
   
