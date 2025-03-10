@@ -77,42 +77,52 @@ function increaseWeek() { /* your implementation */
         console.error('Week number input not found');
     }
 }
-function updateWeekLabel() { /* your implementation */ 
+function updateWeekLabel() {
   const weekNumberInput = document.getElementById('week-number');
-    const weekInput = document.getElementById('week');
-    const weekValueDisplay = document.getElementById('week-value-display');
-    
-    if (!weekNumberInput) {
-        console.error('Week number input not found in updateWeekLabel');
-        return;
+  const weekInput = document.getElementById('week');
+  const weekValueDisplay = document.getElementById('week-value-display');
+
+  if (!weekNumberInput) {
+    console.error('Week number input not found in updateWeekLabel');
+    return;
+  }
+
+  const startingDate = localStorage.getItem('startingDate');
+  if (startingDate) {
+    const startDate = new Date(startingDate);
+    const currentDate = new Date();
+    const diffTime = Math.abs(currentDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const currentWeek = Math.ceil(diffDays / 7);
+    weekNumberInput.value = currentWeek;
+  }
+
+  const weekValue = `Week ${weekNumberInput.value}`;
+
+  if (weekValueDisplay) {
+    weekValueDisplay.textContent = weekValue;
+  } else {
+    console.error('Week value display not found');
+  }
+
+  if (weekInput) {
+    // Check if the value actually changed
+    const oldValue = weekInput.value;
+    weekInput.value = weekValue;
+
+    // If week changed, reload the timetable entries for this week
+    if (oldValue !== weekValue) {
+      console.log(`Week changed from ${oldValue} to ${weekValue}, reloading data`);
+
+      // Short delay to ensure UI updates first
+      setTimeout(() => {
+        // Get data filtered for this week only
+        loadTimetableEntries(false);
+      }, 100);
     }
-    
-    const weekValue = `Week ${weekNumberInput.value}`;
-    
-    if (weekValueDisplay) {
-        weekValueDisplay.textContent = weekValue;
-    } else {
-        console.error('Week value display not found');
-    }
-    
-    if (weekInput) {
-        // Check if the value actually changed
-        const oldValue = weekInput.value;
-        weekInput.value = weekValue;
-        
-        // If week changed, reload the timetable entries for this week
-        if (oldValue !== weekValue) {
-            console.log(`Week changed from ${oldValue} to ${weekValue}, reloading data`);
-            
-            // Short delay to ensure UI updates first
-            setTimeout(() => {
-                // Get data filtered for this week only
-                loadTimetableEntries(false);
-            }, 100);
-        }
-    }
-    
-    console.log('Week updated to:', weekValue);
+  }
+
+  console.log('Week updated to:', weekValue);
 }
 
 
@@ -123,16 +133,6 @@ function updateWeekLabel() { /* your implementation */
 function storeUniqueCourse(courseName) { /* your implementation */ 
   if (!courseName) return;
   
-  let uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
-  if (!uniqueCourses.includes(courseName)) {
-      uniqueCourses.push(courseName);
-      localStorage.setItem('uniqueCourses', JSON.stringify(uniqueCourses));
-  }
-}
-function storeUniqueTeacher(teacherName) { /* your implementation */
-  if (!teacherName) return;
-  
-  let uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
   if (!uniqueTeachers.includes(teacherName)) {
       uniqueTeachers.push(teacherName);
       localStorage.setItem('uniqueTeachers', JSON.stringify(uniqueTeachers));
@@ -2043,30 +2043,64 @@ function manageSavedData() {
 }
 
 // ======================================================
+// WEEK NUMBER HANDLING
+// ======================================================
+function setupStartingDate() {
+  console.log('Setting up starting date...');
+
+  const startingDateInput = document.getElementById('starting-date');
+  const saveStartingDateBtn = document.getElementById('save-starting-date');
+
+  if (startingDateInput && saveStartingDateBtn) {
+    // Load the saved starting date if available
+    const savedStartingDate = localStorage.getItem('startingDate');
+    if (savedStartingDate) {
+      startingDateInput.value = savedStartingDate;
+    }
+
+    saveStartingDateBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      const startingDate = startingDateInput.value;
+      if (startingDate) {
+        localStorage.setItem('startingDate', startingDate);
+        alert('Starting date saved successfully!');
+      } else {
+        alert('Please select a valid starting date.');
+      }
+    });
+  } else {
+    console.error('Starting date input or save button not found.');
+  }
+}
+
+// ======================================================
 // INITIALIZATION
 // ======================================================
 
 function initializeAdminPanel() {
   console.log('Initializing admin panel...');
-  
+
   // 1. Set up authentication/user info
   setupUserInfo();
-  
+
   // 2. Load all data
   loadAllData();
-  
+
   // 3. Set up form handlers
   setupFormHandlers();
-  
+
   // 4. Set up clear all button
   setupClearAllButton();
-  
+
   // 5. Set up manage data button
   setupManageDataButton();
-  
+
   // 6. Set up any other buttons
   setupOtherButtons();
-  
+
+  // 7. Set up starting date
+  setupStartingDate();
+
   console.log('Admin panel initialization complete');
 }
 
@@ -2079,4 +2113,6 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM ready, initializing admin panel...');
   initializeAdminPanel();
 });
+
+
 
