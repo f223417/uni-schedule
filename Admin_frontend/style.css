@@ -21,6 +21,7 @@
 }
 
 body {
+<<<<<<< HEAD
   font-family: 'Segoe UI', Roboto, Arial, sans-serif;
   margin: 0;
   padding: 20px;
@@ -83,6 +84,94 @@ h2 {
 }
 
 /* Form styles */
+=======
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+header #admin-username {
+  font-size: 16px;
+  color: #555;
+}
+
+header button {
+  padding: 10px 20px;
+  background-color: #d9534f;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+header button:hover {
+  background-color: #c9302c;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+section {
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+section h3 {
+  margin-top: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+section input[type="date"] {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+section button {
+  padding: 10px 20px;
+  background-color: #5bc0de;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+section button:hover {
+  background-color: #31b0d5;
+}
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 form {
   width: 90%;
   max-width: 800px;
@@ -424,7 +513,11 @@ textarea {
   color: white;
   border: none;
   padding: 12px 20px;
+<<<<<<< HEAD
   border-radius: var (--radius);
+=======
+  border-radius: var(--radius);
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   cursor: pointer;
   font-weight: 600;
   font-size: 16px;
@@ -462,7 +555,11 @@ input[type="time"] {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--border);
+<<<<<<< HEAD
   border-radius: var (--radius);
+=======
+  border-radius: var(--radius);
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   box-sizing: border-box;
   font-size: 15px;
   transition: var(--transition);

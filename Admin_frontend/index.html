@@ -4,14 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
+<<<<<<< HEAD
     <title>Display Timetable</title>
+=======
+    <title>University Timetable</title>
+    <style>
+        .current-session {
+            font-size: 24px;
+            margin: 10px 0;
+            color: #4a90e2;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 </head>
 <body>
     <div class="date-time" id="date-time">
         <div id="current-datetime"></div>
         <div class="week-number">Week <span id="week-number"></span></div>
     </div>
+<<<<<<< HEAD
     <h1>Timetable</h1>
+=======
+    <h1>University Timetable</h1>
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
     <div class="week-selector">
         <button id="prev-week">Previous Week</button>
         <span id="display-week"></span>
@@ -19,7 +36,23 @@
     </div>
     <div class="timetable-container">
         <table id="timetable-entries" class="timetable">
+<<<<<<< HEAD
             <!-- Table content will be generated dynamically -->
+=======
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table content will be generated dynamically -->
+            </tbody>
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
         </table>
     </div>
     <h2>Announcements</h2>
@@ -28,9 +61,15 @@
     <div id="notice-entries"></div>
     <footer>
         <img src="logo.png" width="250px" alt="University Logo">
+<<<<<<< HEAD
         <p>University of Chakwal</p>
         <p>For more info contact: info@university.edu.pk</p>
         <p>Powered by Faheela Shafi || BIORAYS</p>
+=======
+        <p>University</p>
+        <p>For more info contact: info@university.edu.pk</p>
+        <p>Powered by Faheela Shafi || BIORAYS </p>
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
     </footer>
     <script>
         // Track the currently viewed week and current week separately
@@ -433,5 +472,9 @@
             setInterval(loadDataFromAPI, 60000); // Every minute
         });
     </script>
+<<<<<<< HEAD
+=======
+    <script src="script.js"></script>
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 </body>
 </html>

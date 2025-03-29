@@ -7,6 +7,10 @@ const defaultTimeSlots = [
     "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
 ];
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+<<<<<<< HEAD
+=======
+const availableSessions = ["Session 2021", "Session 2022", "Session 2023", "Session 2024"];
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 
 // Authentication check at the beginning
 (function() {
@@ -81,11 +85,16 @@ function updateWeekLabel() {
   const weekNumberInput = document.getElementById('week-number');
   const weekInput = document.getElementById('week');
   const weekValueDisplay = document.getElementById('week-value-display');
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   if (!weekNumberInput) {
     console.error('Week number input not found in updateWeekLabel');
     return;
   }
+<<<<<<< HEAD
   
   const weekNumber = parseInt(weekNumberInput.value);
   const week1StartDate = new Date(localStorage.getItem('week1StartDate'));
@@ -102,21 +111,48 @@ function updateWeekLabel() {
   
   const weekValue = `Week ${weekNumber}`;
   
+=======
+
+  const startingDate = localStorage.getItem('startingDate');
+  if (startingDate) {
+    const startDate = new Date(startingDate);
+    const currentDate = new Date();
+    const diffTime = Math.abs(currentDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const currentWeek = Math.ceil(diffDays / 7);
+    weekNumberInput.value = currentWeek;
+  }
+
+  const weekValue = `Week ${weekNumberInput.value}`;
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   if (weekValueDisplay) {
     weekValueDisplay.textContent = weekValue;
   } else {
     console.error('Week value display not found');
   }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   if (weekInput) {
     // Check if the value actually changed
     const oldValue = weekInput.value;
     weekInput.value = weekValue;
+<<<<<<< HEAD
     
     // If week changed, reload the timetable entries for this week
     if (oldValue !== weekValue) {
       console.log(`Week changed from ${oldValue} to ${weekValue}, reloading data`);
       
+=======
+
+    // If week changed, reload the timetable entries for this week
+    if (oldValue !== weekValue) {
+      console.log(`Week changed from ${oldValue} to ${weekValue}, reloading data`);
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
       // Short delay to ensure UI updates first
       setTimeout(() => {
         // Get data filtered for this week only
@@ -124,6 +160,7 @@ function updateWeekLabel() {
       }, 100);
     }
   }
+<<<<<<< HEAD
   
   console.log('Week updated to:', weekValue);
 }
@@ -144,6 +181,64 @@ function setWeekStartDate() {
   
   alert('Week 1 start date set successfully!');
 
+=======
+
+  console.log('Week updated to:', weekValue);
+}
+
+function updateSessionLabel() {
+  const sessionSelector = document.getElementById('session-selector');
+  const sessionInput = document.getElementById('session');
+  const sessionValueDisplay = document.getElementById('session-value-display');
+
+  if (!sessionSelector) {
+    console.error('Session selector not found in updateSessionLabel');
+    return;
+  }
+
+  const sessionValue = sessionSelector.value;
+
+  if (sessionValueDisplay) {
+    sessionValueDisplay.textContent = sessionValue;
+  }
+
+  if (sessionInput) {
+    const oldValue = sessionInput.value;
+    sessionInput.value = sessionValue;
+
+    // If session changed, reload the timetable entries for this session
+    if (oldValue !== sessionValue) {
+      console.log(`Session changed from ${oldValue} to ${sessionValue}, reloading data`);
+      setTimeout(() => {
+        loadTimetableEntries(false);
+      }, 100);
+    }
+  }
+
+  console.log('Session updated to:', sessionValue);
+}
+
+function setupSessionSelector() {
+  const sessionSelector = document.getElementById('session-selector');
+  if (!sessionSelector) return;
+  
+  // Clear existing options
+  sessionSelector.innerHTML = '';
+  
+  // Add session options
+  availableSessions.forEach(session => {
+    const option = document.createElement('option');
+    option.value = session;
+    option.textContent = session;
+    sessionSelector.appendChild(option);
+  });
+  
+  // Add change event handler
+  sessionSelector.addEventListener('change', updateSessionLabel);
+  
+  // Initialize
+  updateSessionLabel();
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 }
 
 // ======================================================
@@ -153,6 +248,7 @@ function setWeekStartDate() {
 function storeUniqueCourse(courseName) { /* your implementation */ 
   if (!courseName) return;
   
+<<<<<<< HEAD
   let uniqueCourses = JSON.parse(localStorage.getItem('uniqueCourses')) || [];
   if (!uniqueCourses.includes(courseName)) {
       uniqueCourses.push(courseName);
@@ -163,6 +259,8 @@ function storeUniqueTeacher(teacherName) { /* your implementation */
   if (!teacherName) return;
   
   let uniqueTeachers = JSON.parse(localStorage.getItem('uniqueTeachers')) || [];
+=======
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   if (!uniqueTeachers.includes(teacherName)) {
       uniqueTeachers.push(teacherName);
       localStorage.setItem('uniqueTeachers', JSON.stringify(uniqueTeachers));
@@ -880,6 +978,7 @@ function forceDeleteAllItemsIndividually() {
 function generatePDF() {
   console.log('Starting PDF generation with calendar layout...');
   
+<<<<<<< HEAD
   // Prevent multiple clicks - important to prevent double downloads
   const pdfBtn = document.getElementById('generate-pdf');
   if (pdfBtn) {
@@ -891,6 +990,8 @@ function generatePDF() {
     pdfBtn.disabled = true;
   }
   
+=======
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   // Show loading indicator
   const loadingMsg = document.createElement('div');
   loadingMsg.style.position = 'fixed';
@@ -967,10 +1068,14 @@ function generatePDF() {
     
     // Add image to PDF
     pdf.addImage(imgData, 'PNG', 10, 10, imgWidth * ratio, imgHeight * ratio);
+<<<<<<< HEAD
     
     // Use a unique filename to avoid conflicts
     const filename = `university_timetable_${Date.now()}.pdf`;
     pdf.save(filename);
+=======
+    pdf.save('university_timetable.pdf');
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
     
     console.log('PDF successfully generated and saved');
     
@@ -984,6 +1089,7 @@ function generatePDF() {
     if (loadingMsg.parentNode) {
       loadingMsg.parentNode.removeChild(loadingMsg);
     }
+<<<<<<< HEAD
   })
   .finally(() => {
     // Re-enable the PDF button
@@ -995,6 +1101,13 @@ function generatePDF() {
   
   // Helper functions
   function loadScriptsSequentially(srcs) {
+=======
+  });
+  
+  // Helper functions remain the same
+  function loadScriptsSequentially(srcs) {
+    // Implementation unchanged
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
     return srcs.reduce((promise, src) => {
       return promise.then(() => {
         return new Promise((resolve, reject) => {
@@ -1041,7 +1154,11 @@ function generatePDF() {
     });
   }
   
+<<<<<<< HEAD
   // Updated function to create a calendar layout
+=======
+  // Updated function to create a calendar layout that matches your example
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   function createCalendarLayout(data, debugMode) {
     // Create container
     const container = document.createElement('div');
@@ -1090,6 +1207,7 @@ function generatePDF() {
         border: '#42a5f5'       // Medium blue border
       };
       
+<<<<<<< HEAD
       // Helper function to normalize week names - extract just the week number
       function normalizeWeekName(weekStr) {
         if (!weekStr) return 'Unspecified Week';
@@ -1109,6 +1227,16 @@ function generatePDF() {
           weekGroups[normalizedWeek] = [];
         }
         weekGroups[normalizedWeek].push(entry);
+=======
+      // Group entries by week
+      const weekGroups = {};
+      data.forEach(entry => {
+        const week = entry.week || 'Unspecified Week';
+        if (!weekGroups[week]) {
+          weekGroups[week] = [];
+        }
+        weekGroups[week].push(entry);
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
       });
       
       // Create a weekly calendar for each week
@@ -1118,10 +1246,14 @@ function generatePDF() {
         // Create weekly container
         const weekContainer = document.createElement('div');
         weekContainer.style.marginBottom = '30px';
+<<<<<<< HEAD
         if (DEBUG_MODE) {
           // Only add page breaks in debug mode
           weekContainer.style.pageBreakAfter = 'always'; 
         }
+=======
+        weekContainer.style.pageBreakAfter = 'always'; // Each week on a new page
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
         
         // Add week title
         const weekTitle = document.createElement('h2');
@@ -1241,6 +1373,11 @@ function generatePDF() {
               
               // Check if entry time matches
               const entryTimeSlot = `${entry.startTime} - ${entry.endTime}`;
+<<<<<<< HEAD
+=======
+              // We could format this for comparison, but it's better to keep the original format
+              // for comparison purposes and only format for display
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
               const isTimeMatch = entryTimeSlot === timeSlot;
               
               return isDayMatch && isTimeMatch;
@@ -1505,6 +1642,7 @@ function setupFormHandlers() { /* your implementation */
       submitTimetableEntry();
     });
     
+<<<<<<< HEAD
     // Set up week number inputs
     const decreaseBtn = document.getElementById('decrease-week');
     const increaseBtn = document.getElementById('increase-week');
@@ -1519,6 +1657,10 @@ function setupFormHandlers() { /* your implementation */
     
     // Initialize week label
     updateWeekLabel();
+=======
+    // Initialize session label
+    updateSessionLabel();
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   }
   
   // Set up announcement form
@@ -1547,11 +1689,19 @@ function setupFormHandlers() { /* your implementation */
 // SUBMISSION HANDLERS
 // ======================================================
 
+<<<<<<< HEAD
+=======
+// Update the submitTimetableEntry function
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 function submitTimetableEntry() {
   console.log('Submitting timetable entry...');
   
   // Get form elements
+<<<<<<< HEAD
   const weekInput = document.getElementById('week');
+=======
+  const sessionInput = document.getElementById('session');
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   const courseInput = document.getElementById('course');
   const dayCheckboxes = document.querySelectorAll('input[name="days[]"]');
   const startTimeInput = document.getElementById('start-time');
@@ -1560,6 +1710,7 @@ function submitTimetableEntry() {
   const venueInput = document.getElementById('venue');
   const submitBtn = document.querySelector('#timetable-form button[type="submit"]');
   
+<<<<<<< HEAD
   // Debug form elements to see what's found
   console.log('Form elements:');
   console.log('Week:', weekInput);
@@ -1573,6 +1724,11 @@ function submitTimetableEntry() {
   // Check for missing fields
   const missingFields = [];
   if (!weekInput) missingFields.push('week');
+=======
+  // Check for missing fields
+  const missingFields = [];
+  if (!sessionInput) missingFields.push('session');
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   if (!courseInput) missingFields.push('course');
   if (dayCheckboxes.length === 0) missingFields.push('days');
   if (!startTimeInput) missingFields.push('start-time');
@@ -1586,7 +1742,11 @@ function submitTimetableEntry() {
   }
   
   // Get form values
+<<<<<<< HEAD
   const week = weekInput.value;
+=======
+  const session = sessionInput.value;
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   const course = courseInput.value;
   const startTime = startTimeInput.value;
   const endTime = endTimeInput.value;
@@ -1602,7 +1762,11 @@ function submitTimetableEntry() {
   });
   
   // Validate required fields
+<<<<<<< HEAD
   if (!week || !course || days.length === 0 || !startTime || !endTime || !venue) {
+=======
+  if (!session || !course || days.length === 0 || !startTime || !endTime || !venue) {
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
     alert('Please fill all required fields. Make sure to select at least one day.');
     return;
   }
@@ -1626,7 +1790,11 @@ function submitTimetableEntry() {
   
   // Create entry object
   const entry = {
+<<<<<<< HEAD
     week,
+=======
+    session,
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
     course,
     days,
     startTime,
@@ -1637,11 +1805,14 @@ function submitTimetableEntry() {
   
   console.log('Submitting entry:', entry);
   
+<<<<<<< HEAD
   // Normalize week format (add this before sending to API)
   if (entry.week && !entry.week.toLowerCase().startsWith('week')) {
     entry.week = `Week ${entry.week}`;
   }
   
+=======
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   // Send to API
   fetch(`${API_BASE_URL}/timetable`, {
     method: 'POST',
@@ -1650,6 +1821,7 @@ function submitTimetableEntry() {
     },
     body: JSON.stringify(entry)
   })
+<<<<<<< HEAD
   .then(response => {
     if (!response.ok) {
       return response.text().then(text => {
@@ -1701,6 +1873,14 @@ function submitTimetableEntry() {
     }
   });
 }
+=======
+  // Rest of the function remains the same
+  .then(response => {
+    // ...existing code...
+  });
+}
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 function submitAnnouncement() {
   console.log('Submitting announcement...');
   
@@ -2105,11 +2285,46 @@ function manageSavedData() {
 }
 
 // ======================================================
+<<<<<<< HEAD
+=======
+// WEEK NUMBER HANDLING
+// ======================================================
+function setupStartingDate() {
+  console.log('Setting up starting date...');
+
+  const startingDateInput = document.getElementById('starting-date');
+  const saveStartingDateBtn = document.getElementById('save-starting-date');
+
+  if (startingDateInput && saveStartingDateBtn) {
+    // Load the saved starting date if available
+    const savedStartingDate = localStorage.getItem('startingDate');
+    if (savedStartingDate) {
+      startingDateInput.value = savedStartingDate;
+    }
+
+    saveStartingDateBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      const startingDate = startingDateInput.value;
+      if (startingDate) {
+        localStorage.setItem('startingDate', startingDate);
+        alert('Starting date saved successfully!');
+      } else {
+        alert('Please select a valid starting date.');
+      }
+    });
+  } else {
+    console.error('Starting date input or save button not found.');
+  }
+}
+
+// ======================================================
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
 // INITIALIZATION
 // ======================================================
 
 function initializeAdminPanel() {
   console.log('Initializing admin panel...');
+<<<<<<< HEAD
   
   // 1. Set up authentication/user info
   setupUserInfo();
@@ -2129,6 +2344,24 @@ function initializeAdminPanel() {
   // 6. Set up any other buttons
   setupOtherButtons();
   
+=======
+
+  // 1. Set up authentication/user info
+  setupUserInfo();
+
+  // 2. Load all data
+  loadAllData();
+
+  // 3. Set up form handlers with session selector instead of week
+  setupFormHandlers();
+  setupSessionSelector();  // New function to set up session selector
+
+  // 4. Set up other buttons
+  setupClearAllButton();
+  setupManageDataButton();
+  setupOtherButtons();
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
   console.log('Admin panel initialization complete');
 }
 
@@ -2142,3 +2375,8 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeAdminPanel();
 });
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 494433f93af5d9c9caee4bf0767016bc78bc5b44
