@@ -41,10 +41,16 @@ app.get('/api/timetable', async (req, res) => {
   }
 });
 
+// Update the POST endpoint for timetable entries to use 'session' instead of 'week'
 app.post('/api/timetable', async (req, res) => {
   try {
     const newEntry = req.body;
     console.log('Adding new timetable entry:', newEntry);
+    
+    // If no session is specified, default to "Session 2021"
+    if (!newEntry.session) {
+      newEntry.session = 'Session 2021';
+    }
     
     // Generate a unique key
     const newEntryRef = push(ref(database, 'timetable'));

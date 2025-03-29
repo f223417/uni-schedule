@@ -7,6 +7,7 @@ const defaultTimeSlots = [
     "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
 ];
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const availableSessions = ["Session 2021", "Session 2022", "Session 2023", "Session 2024"];
 
 // Authentication check at the beginning
 (function() {
@@ -125,6 +126,59 @@ function updateWeekLabel() {
   console.log('Week updated to:', weekValue);
 }
 
+function updateSessionLabel() {
+  const sessionSelector = document.getElementById('session-selector');
+  const sessionInput = document.getElementById('session');
+  const sessionValueDisplay = document.getElementById('session-value-display');
+
+  if (!sessionSelector) {
+    console.error('Session selector not found in updateSessionLabel');
+    return;
+  }
+
+  const sessionValue = sessionSelector.value;
+
+  if (sessionValueDisplay) {
+    sessionValueDisplay.textContent = sessionValue;
+  }
+
+  if (sessionInput) {
+    const oldValue = sessionInput.value;
+    sessionInput.value = sessionValue;
+
+    // If session changed, reload the timetable entries for this session
+    if (oldValue !== sessionValue) {
+      console.log(`Session changed from ${oldValue} to ${sessionValue}, reloading data`);
+      setTimeout(() => {
+        loadTimetableEntries(false);
+      }, 100);
+    }
+  }
+
+  console.log('Session updated to:', sessionValue);
+}
+
+function setupSessionSelector() {
+  const sessionSelector = document.getElementById('session-selector');
+  if (!sessionSelector) return;
+  
+  // Clear existing options
+  sessionSelector.innerHTML = '';
+  
+  // Add session options
+  availableSessions.forEach(session => {
+    const option = document.createElement('option');
+    option.value = session;
+    option.textContent = session;
+    sessionSelector.appendChild(option);
+  });
+  
+  // Add change event handler
+  sessionSelector.addEventListener('change', updateSessionLabel);
+  
+  // Initialize
+  updateSessionLabel();
+}
 
 // ======================================================
 // DATA MANAGEMENT FUNCTIONS
@@ -1443,20 +1497,8 @@ function setupFormHandlers() { /* your implementation */
       submitTimetableEntry();
     });
     
-    // Set up week number inputs
-    const decreaseBtn = document.getElementById('decrease-week');
-    const increaseBtn = document.getElementById('increase-week');
-    
-    if (decreaseBtn) {
-      decreaseBtn.addEventListener('click', decreaseWeek);
-    }
-    
-    if (increaseBtn) {
-      increaseBtn.addEventListener('click', increaseWeek);
-    }
-    
-    // Initialize week label
-    updateWeekLabel();
+    // Initialize session label
+    updateSessionLabel();
   }
   
   // Set up announcement form
@@ -1485,11 +1527,12 @@ function setupFormHandlers() { /* your implementation */
 // SUBMISSION HANDLERS
 // ======================================================
 
+// Update the submitTimetableEntry function
 function submitTimetableEntry() {
   console.log('Submitting timetable entry...');
   
   // Get form elements
-  const weekInput = document.getElementById('week');
+  const sessionInput = document.getElementById('session');
   const courseInput = document.getElementById('course');
   const dayCheckboxes = document.querySelectorAll('input[name="days[]"]');
   const startTimeInput = document.getElementById('start-time');
@@ -1500,7 +1543,7 @@ function submitTimetableEntry() {
   
   // Check for missing fields
   const missingFields = [];
-  if (!weekInput) missingFields.push('week');
+  if (!sessionInput) missingFields.push('session');
   if (!courseInput) missingFields.push('course');
   if (dayCheckboxes.length === 0) missingFields.push('days');
   if (!startTimeInput) missingFields.push('start-time');
@@ -1514,7 +1557,7 @@ function submitTimetableEntry() {
   }
   
   // Get form values
-  const week = weekInput.value;
+  const session = sessionInput.value;
   const course = courseInput.value;
   const startTime = startTimeInput.value;
   const endTime = endTimeInput.value;
@@ -1530,7 +1573,7 @@ function submitTimetableEntry() {
   });
   
   // Validate required fields
-  if (!week || !course || days.length === 0 || !startTime || !endTime || !venue) {
+  if (!session || !course || days.length === 0 || !startTime || !endTime || !venue) {
     alert('Please fill all required fields. Make sure to select at least one day.');
     return;
   }
@@ -1554,7 +1597,7 @@ function submitTimetableEntry() {
   
   // Create entry object
   const entry = {
-    week,
+    session,
     course,
     days,
     startTime,
@@ -1565,11 +1608,6 @@ function submitTimetableEntry() {
   
   console.log('Submitting entry:', entry);
   
-  // Normalize week format (add this before sending to API)
-  if (entry.week && !entry.week.toLowerCase().startsWith('week')) {
-    entry.week = `Week ${entry.week}`;
-  }
-  
   // Send to API
   fetch(`${API_BASE_URL}/timetable`, {
     method: 'POST',
@@ -1578,58 +1616,12 @@ function submitTimetableEntry() {
     },
     body: JSON.stringify(entry)
   })
+  // Rest of the function remains the same
   .then(response => {
-    console.log('Received response:', response);
-    if (!response.ok) {
-      return response.text().then(text => {
-        throw new Error(`Server error: ${text || response.status}`);
-      });
-    }
-    return response.json();
-  })
-  .then(data => {
-    console.log('Timetable entry added successfully:', data);
-    alert('Timetable entry added successfully!');
-    
-    // Clear form
-    courseInput.value = '';
-    dayCheckboxes.forEach(checkbox => checkbox.checked = false);
-    startTimeInput.value = '';
-    endTimeInput.value = '';
-    if (teacherInput) teacherInput.value = '';
-    venueInput.value = '';
-    
-    // Reload timetable entries
-    loadTimetableEntries();
-    
-    // Force index page to reload
-    localStorage.setItem('forceDataReload', Date.now().toString());
-    localStorage.setItem('timetableUpdated', Date.now().toString());
-    
-    // Use BroadcastChannel to notify other tabs/windows
-    try {
-      const bc = new BroadcastChannel('uni_schedule_updates');
-      bc.postMessage({ 
-        type: 'data-updated', 
-        dataType: 'timetable',
-        timestamp: Date.now()
-      });
-      bc.close();
-    } catch(e) {
-      console.log('BroadcastChannel not supported');
-    }
-  })
-  .catch(error => {
-    console.error('Error adding timetable entry:', error);
-    alert(`Failed to add timetable entry: ${error.message}`);
-  })
-  .finally(() => {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Add Entry';
-    }
+    // ...existing code...
   });
 }
+
 function submitAnnouncement() {
   console.log('Submitting announcement...');
   
@@ -2077,20 +2069,14 @@ function initializeAdminPanel() {
   // 2. Load all data
   loadAllData();
 
-  // 3. Set up form handlers
+  // 3. Set up form handlers with session selector instead of week
   setupFormHandlers();
+  setupSessionSelector();  // New function to set up session selector
 
-  // 4. Set up clear all button
+  // 4. Set up other buttons
   setupClearAllButton();
-
-  // 5. Set up manage data button
   setupManageDataButton();
-
-  // 6. Set up any other buttons
   setupOtherButtons();
-
-  // 7. Set up starting date
-  setupStartingDate();
 
   console.log('Admin panel initialization complete');
 }

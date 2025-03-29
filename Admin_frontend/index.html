@@ -4,14 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <title>Display Timetable</title>
+    <title>University Timetable</title>
+    <style>
+        .current-session {
+            font-size: 24px;
+            margin: 10px 0;
+            color: #4a90e2;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="date-time" id="date-time">
         <div id="current-datetime"></div>
         <div class="week-number">Week <span id="week-number"></span></div>
     </div>
-    <h1>Timetable</h1>
+    <h1>University Timetable</h1>
     <div class="week-selector">
         <button id="prev-week">Previous Week</button>
         <span id="display-week"></span>
@@ -19,7 +28,19 @@
     </div>
     <div class="timetable-container">
         <table id="timetable-entries" class="timetable">
-            <!-- Table content will be generated dynamically -->
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table content will be generated dynamically -->
+            </tbody>
         </table>
     </div>
     <h2>Announcements</h2>
@@ -30,7 +51,7 @@
         <img src="logo.png" width="250px" alt="University Logo">
         <p>University</p>
         <p>For more info contact: info@university.edu.pk</p>
-        <p>Powereb by Faheela Shafi || BIORAYS </p>
+        <p>Powered by Faheela Shafi || BIORAYS </p>
     </footer>
     <script>
         // Track the currently viewed week and current week separately
@@ -433,5 +454,6 @@
             setInterval(loadDataFromAPI, 60000); // Every minute
         });
     </script>
+    <script src="script.js"></script>
 </body>
 </html>
