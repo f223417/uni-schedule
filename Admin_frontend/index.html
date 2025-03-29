@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Display Timetable</title>
+</head>
+<body>
+    <div class="date-time" id="date-time">
+        <div id="current-datetime"></div>
+        <div class="week-number">Week <span id="week-number"></span></div>
+    </div>
+    <h1>Timetable</h1>
+    <div class="week-selector">
+        <button id="prev-week">Previous Week</button>
+        <span id="display-week"></span>
+        <button id="next-week">Next Week</button>
+    </div>
+    <div class="timetable-container">
+        <table id="timetable-entries" class="timetable">
+            <!-- Table content will be generated dynamically -->
+        </table>
+    </div>
+    <h2>Announcements</h2>
+    <div id="announcement-entries"></div>
+    <h2>Notices</h2>
+    <div id="notice-entries"></div>
+    <footer>
+        <img src="logo.png" width="250px" alt="University Logo">
+        <p>University of Chakwal</p>
+        <p>For more info contact: info@university.edu.pk</p>
+        <p>Powered by Faheela Shafi || BIORAYS</p>
+    </footer>
+    <script>
+        // Track the currently viewed week and current week separately
+        let viewingWeek = 1;
+        let currentWeek = 1;
+
+        // Function to update the current date and time
+        function updateDateTime() {
+            const now = new Date();
+            const formattedDateTime = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+            document.getElementById('current-datetime').textContent = formattedDateTime;
+
+            // Calculate week number since the start date
+            let startDate = localStorage.getItem('startDate');
+            if (!startDate) {
+                // If no start date is set, use the current date as the start date
+                startDate = now.toISOString();
+                localStorage.setItem('startDate', startDate);
+            }
+
+            const start = new Date(startDate);
+            const diffTime = Math.abs(now - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const weekNumber = Math.ceil(diffDays / 7);
+
+            // Update the current week display but don't change the viewing week
+            document.getElementById('week-number').textContent = weekNumber;
+            currentWeek = weekNumber;
+
+            // Only set viewing week to current week when the page first loads
+            if (!window.weekNavigated) {
+                viewingWeek = currentWeek;
+                document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+            }
+
+            // Update every second
+            setTimeout(updateDateTime, 1000);
+        }
+
+        // Function to format time from 24h to 12h format
+        function formatTimeToAMPM(timeStr) {
+            if (!timeStr) return '';
+
+            // Check if time is already in AM/PM format
+            if (timeStr.includes('AM') || timeStr.includes('PM')) {
+                return timeStr;
+            }
+
+            try {
+                // Parse 24-hour format like "14:30"
+                const [hours, minutes] = timeStr.split(':').map(num => parseInt(num, 10));
+
+                if (isNaN(hours) || isNaN(minutes)) {
+                    return timeStr; // Return original if parsing fails
+                }
+
+                const period = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+
+                return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+            } catch (e) {
+                console.error('Error formatting time:', e);
+                return timeStr; // Return original on error
+            }
+        }
+
+        // Function to update the timetable display
+        function updateTimetable() {
+            console.log('Updating timetable for week', viewingWeek);
+            const timetableEntries = JSON.parse(localStorage.getItem('timetableEntries')) || [];
+            console.log('Total entries loaded:', timetableEntries.length);
+
+            // Get the table element
+            const table = document.getElementById('timetable-entries');
+            if (!table) {
+                console.error('Timetable element not found!');
+                return;
+            }
+            table.innerHTML = ''; // Clear existing entries
+
+            // Create header row
+            const headerRow = document.createElement('tr');
+
+            // Time column header
+            const timeHeader = document.createElement('th');
+            timeHeader.textContent = "Time";
+            headerRow.appendChild(timeHeader);
+
+            // Define weekdays
+            const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+            const weekendDays = ["Saturday", "Sunday"];
+
+            // Filter entries for the current viewing week
+            const currentWeekEntries = timetableEntries.filter(entry => entry.week === `Week ${viewingWeek}`);
+            console.log('Filtered entries for week', viewingWeek, ':', currentWeekEntries);
+
+            // Determine if there are entries for Saturday or Sunday
+            const hasSaturdayEntries = currentWeekEntries.some(entry => entry.days.includes("Saturday"));
+            const hasSundayEntries = currentWeekEntries.some(entry => entry.days.includes("Sunday"));
+
+            // Add day headers
+            weekdays.forEach(day => {
+                const th = document.createElement('th');
+                th.textContent = day;
+                headerRow.appendChild(th);
+            });
+
+            if (hasSaturdayEntries) {
+                const th = document.createElement('th');
+                th.textContent = "Saturday";
+                headerRow.appendChild(th);
+            }
+
+            if (hasSundayEntries) {
+                const th = document.createElement('th');
+                th.textContent = "Sunday";
+                headerRow.appendChild(th);
+            }
+
+            table.appendChild(headerRow);
+
+            // Get unique time slots from entries
+            const customTimeSlots = [];
+            currentWeekEntries.forEach(entry => {
+                if (!entry.startTime || !entry.endTime) return;
+
+                if (!customTimeSlots.some(slot => slot.start === entry.startTime && slot.end === entry.endTime)) {
+                    customTimeSlots.push({
+                        start: entry.startTime,
+                        end: entry.endTime,
+                        display: `${formatTimeToAMPM(entry.startTime)} - ${formatTimeToAMPM(entry.endTime)}`
+                    });
+                }
+            });
+
+            // Sort custom time slots by start time if they exist
+            if (customTimeSlots.length > 0) {
+                customTimeSlots.sort((a, b) => a.start.localeCompare(b.start));
+
+                // Create rows for each time slot
+                customTimeSlots.forEach(timeSlot => {
+                    const row = document.createElement('tr');
+
+                    // Time cell
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = timeSlot.display;
+                    timeCell.className = 'time-cell';
+                    row.appendChild(timeCell);
+
+                    // Create cells for each day
+                    weekdays.forEach(day => {
+                        const cell = document.createElement('td');
+
+                        // Find entries for this day and time slot
+                        const dayEntries = currentWeekEntries.filter(entry => {
+                            let dayMatch = false;
+                            if (Array.isArray(entry.days)) {
+                                dayMatch = entry.days.includes(day);
+                            } else if (typeof entry.days === 'string') {
+                                dayMatch = entry.days === day;
+                            } else if (entry.day) {
+                                dayMatch = entry.day === day;
+                            }
+
+                            const timeMatch = entry.startTime === timeSlot.start && entry.endTime === timeSlot.end;
+
+                            return dayMatch && timeMatch;
+                        });
+
+                        // Add content to cell if entries found
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+
+                        row.appendChild(cell);
+                    });
+
+                    if (hasSaturdayEntries) {
+                        const cell = document.createElement('td');
+                        const dayEntries = currentWeekEntries.filter(entry => entry.days.includes("Saturday") && entry.startTime === timeSlot.start && entry.endTime === timeSlot.end);
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+                        row.appendChild(cell);
+                    }
+
+                    if (hasSundayEntries) {
+                        const cell = document.createElement('td');
+                        const dayEntries = currentWeekEntries.filter(entry => entry.days.includes("Sunday") && entry.startTime === timeSlot.start && entry.endTime === timeSlot.end);
+                        dayEntries.forEach(entry => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'class-entry';
+
+                            let entryContent = `<strong>${entry.course || 'Class'}</strong>`;
+
+                            if (entry.venue) {
+                                entryContent += `<p class="venue">${entry.venue}</p>`;
+                            }
+
+                            if (entry.teacher) {
+                                entryContent += `<p class="teacher">${entry.teacher}</p>`;
+                            }
+
+                            entryDiv.innerHTML = entryContent;
+                            cell.appendChild(entryDiv);
+                        });
+                        row.appendChild(cell);
+                    }
+
+                    table.appendChild(row);
+                });
+            } else {
+                console.log('No time slots found, using default slots');
+                // Use default time slots if no entries found
+                const defaultTimeSlots = [
+                    "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+                    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
+                ];
+                defaultTimeSlots.forEach(time => {
+                    const row = document.createElement('tr');
+
+                    // Time cell
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = time;
+                    timeCell.className = 'time-cell';
+                    row.appendChild(timeCell);
+
+                    // Add empty cells for each day
+                    weekdays.forEach(() => {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    });
+
+                    if (hasSaturdayEntries) {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    }
+
+                    if (hasSundayEntries) {
+                        const cell = document.createElement('td');
+                        row.appendChild(cell);
+                    }
+
+                    table.appendChild(row);
+                });
+            }
+        }
+
+        // Function to load data from API
+        function loadDataFromAPI() {
+            console.log('Loading data from API...');
+
+            // Load timetable data
+            fetch('/api/timetable')
+                .then(response => {
+                    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`Loaded ${data.length} timetable entries from API`);
+                    localStorage.setItem('timetableEntries', JSON.stringify(data));
+                    updateTimetable();
+                })
+                .catch(error => {
+                    console.error('Error loading timetable data:', error);
+                });
+
+            // Load announcements
+            fetch('/api/announcements')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} announcements from API`);
+                    localStorage.setItem('announcements', JSON.stringify(data));
+                    updateAnnouncements();
+                })
+                .catch(error => console.error('Error loading announcements:', error));
+
+            // Load notices
+            fetch('/api/notices')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Loaded ${data.length} notices from API`);
+                    localStorage.setItem('notices', JSON.stringify(data));
+                    updateNotices();
+                })
+                .catch(error => console.error('Error loading notices:', error));
+        }
+
+        // Function to handle week navigation
+        function navigateWeek(direction) {
+            if (direction === 'next') {
+                viewingWeek++;
+                window.weekNavigated = true;
+            } else if (direction === 'prev') {
+                viewingWeek = Math.max(1, viewingWeek - 1);
+                window.weekNavigated = true;
+            }
+
+            document.getElementById('display-week').textContent = `Week ${viewingWeek}`;
+            updateTimetable();
+        }
+
+        // Function to update announcements display
+        function updateAnnouncements() {
+            const announcements = JSON.parse(localStorage.getItem('announcements')) || [];
+            const announcementContainer = document.getElementById('announcement-entries');
+            announcementContainer.innerHTML = ''; // Clear existing entries
+
+            if (announcements.length === 0) {
+                announcementContainer.innerHTML = '<p>No active announcements</p>';
+                return;
+            }
+
+            announcements.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'announcement';
+
+                entryDiv.innerHTML = `
+                    <p class="announcement-text">${entry.announcement}</p>
+                    <p class="announcement-date">Posted: ${new Date(entry.date).toLocaleDateString()}</p>
+                    <hr>
+                `;
+                announcementContainer.appendChild(entryDiv);
+            });
+        }
+
+        // Function to update notices display
+        function updateNotices() {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const noticeContainer = document.getElementById('notice-entries');
+            noticeContainer.innerHTML = ''; // Clear existing entries
+
+            notices.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.innerHTML = `
+                    <p>Notice: ${entry.notice}</p>
+                    <p>Date: ${new Date(entry.date).toLocaleDateString()}</p>
+                    <hr>
+                `;
+                noticeContainer.appendChild(entryDiv);
+            });
+        }
+
+        // Initialize everything when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM content loaded - initializing timetable display');
+
+            // Initial setup
+            updateDateTime();
+            updateTimetable();
+
+            // Setup navigation buttons
+            const prevWeekBtn = document.getElementById('prev-week');
+            const nextWeekBtn = document.getElementById('next-week');
+
+            if (prevWeekBtn) {
+                prevWeekBtn.addEventListener('click', function() {
+                    navigateWeek('prev');
+                });
+            }
+
+            if (nextWeekBtn) {
+                nextWeekBtn.addEventListener('click', function() {
+                    navigateWeek('next');
+                });
+            }
+
+            // Initial data load
+            loadDataFromAPI();
+
+            // Just refresh data every minute
+            setInterval(loadDataFromAPI, 60000); // Every minute
+        });
+    </script>
+</body>
+</html>

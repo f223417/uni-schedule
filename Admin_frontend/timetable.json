@@ -1,0 +1,70 @@
+{
+    "timetable": {
+        "Week 1": [
+            {
+                "day": "Monday",
+                "time": "10:00 AM - 11:00 AM",
+                "teacher": "John Doe",
+                "venue": "Room 101"
+            },
+            {
+                "day": "Monday",
+                "time": "11:00 AM - 12:00 PM",
+                "teacher": "Jane Smith",
+                "venue": "Room 102"
+            },
+            {
+                "day": "Monday",
+                "time": "1:00 PM - 2:00 PM",
+                "teacher": "Emily Johnson",
+                "venue": "Room 103"
+            }
+        ],
+        "Week 2": [
+            {
+                "day": "Monday",
+                "time": "10:00 AM - 11:00 AM",
+                "teacher": "Michael Brown",
+                "venue": "Room 201"
+            },
+            {
+                "day": "Monday",
+                "time": "11:00 AM - 12:00 PM",
+                "teacher": "Sarah Davis",
+                "venue": "Room 202"
+            },
+            {
+                "day": "Monday",
+                "time": "1:00 PM - 2:00 PM",
+                "teacher": "David Wilson",
+                "venue": "Room 203"
+            }
+        ],
+        "Week 3": [
+            {
+                "day": "Monday",
+                "time": "10:00 AM - 11:00 AM",
+                "teacher": "Chris Lee",
+                "venue": "Room 301"
+            },
+            {
+                "day": "Monday",
+                "time": "11:00 AM - 12:00 PM",
+                "teacher": "Jessica Taylor",
+                "venue": "Room 302"
+            },
+            {
+                "day": "Monday",
+                "time": "1:00 PM - 2:00 PM",
+                "teacher": "Daniel Martinez",
+                "venue": "Room 303"
+            }
+        ]
+    },
+    "announcements": [
+        {
+            "message": "Holiday on Friday, 10th March",
+            "duration": 5
+        }
+    ]
+}
